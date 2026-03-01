@@ -23,6 +23,25 @@ class AffixType(Enum):
     PREFIX = "prefix"
     SUFFIX = "suffix"
 
+# ============= ТИПЫ ОРУЖИЯ =============
+
+class WeaponType:
+    """Типы оружия ближнего боя"""
+    ONE_HAND_SWORD = "one_hand_sword"
+    THRUSTING_SWORD = "thrusting_sword"
+    ONE_HAND_AXE = "one_hand_axe"
+    ONE_HAND_MACE = "one_hand_mace"
+    CLAW = "claw"
+    DAGGER = "dagger"
+    SCEPTRE = "sceptre"
+    TWO_HAND_SWORD = "two_hand_sword"
+    TWO_HAND_AXE = "two_hand_axe"
+    TWO_HAND_MACE = "two_hand_mace"
+    STAFF = "staff"
+    QUARTERSTAFF = "quarterstaff"
+    SPEAR = "spear"
+    FLAIL = "flail"
+
 # ============= АФФИКСЫ (МОДИФИКАТОРЫ) =============
 
 PREFIXES = {
