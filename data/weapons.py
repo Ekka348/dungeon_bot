@@ -1,23 +1,5 @@
 from data.items import WeaponType
 
-# ============= ТИПЫ ОРУЖИЯ =============
-
-class WeaponType:
-    ONE_HAND_SWORD = "one_hand_sword"
-    THRUSTING_SWORD = "thrusting_sword"
-    ONE_HAND_AXE = "one_hand_axe"
-    ONE_HAND_MACE = "one_hand_mace"
-    CLAW = "claw"
-    DAGGER = "dagger"
-    SCEPTRE = "sceptre"
-    TWO_HAND_SWORD = "two_hand_sword"
-    TWO_HAND_AXE = "two_hand_axe"
-    TWO_HAND_MACE = "two_hand_mace"
-    STAFF = "staff"
-    QUARTERSTAFF = "quarterstaff"
-    SPEAR = "spear"
-    FLAIL = "flail"
-
 # ============= БАЗОВЫЕ ХАРАКТЕРИСТИКИ ОРУЖИЯ =============
 
 WEAPON_BASES = {
