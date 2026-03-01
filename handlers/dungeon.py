@@ -11,7 +11,7 @@ from data.act1 import Act1
 from systems.area_level import AreaLevelSystem, Area, DifficultyCalculator
 from systems.loot import LootSystem
 from systems.progression import ProgressionSystem
-from utils.keyboards import get_dungeon_keyboard, get_battle_keyboard, get_haven_keyboard
+from utils.keyboards import get_dungeon_keyboard, get_battle_action_keyboard, get_haven_keyboard
 from utils.helpers import format_dungeon_view, format_progress_bar
 
 # ============= ОСНОВНОЙ ХЕНДЛЕР ПОДЗЕМЕЛЬЯ =============
