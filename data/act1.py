@@ -1,7 +1,9 @@
+import random
+
 # ============= АКТ 1: ЛОКАЦИИ, МОНСТРЫ И КВЕСТЫ =============
 
 class Act1:
-    """Первый акт игры: Падший"""
+    """Первый акт игры: Падший (The Fallen)"""
     
     # ============= ЛОКАЦИИ АКТА 1 =============
     LOCATIONS = {
@@ -15,7 +17,9 @@ class Act1:
             "biome": "dungeon_entrance",
             "next_location": 2,
             "monster_density": 0.8,
-            "event_density": 0.2
+            "event_density": 0.2,
+            "min_events": 8,
+            "max_events": 12
         },
         2: {
             "id": 2,
@@ -38,7 +42,9 @@ class Act1:
             "biome": "catacombs",
             "next_location": 4,
             "monster_density": 0.75,
-            "event_density": 0.25
+            "event_density": 0.25,
+            "min_events": 12,
+            "max_events": 16
         },
         4: {
             "id": 4,
@@ -50,7 +56,9 @@ class Act1:
             "biome": "worm_tunnels",
             "next_location": 5,
             "monster_density": 0.8,
-            "event_density": 0.2
+            "event_density": 0.2,
+            "min_events": 12,
+            "max_events": 16
         },
         5: {
             "id": 5,
@@ -62,7 +70,9 @@ class Act1:
             "biome": "dwarven_halls",
             "next_location": 6,
             "monster_density": 0.75,
-            "event_density": 0.25
+            "event_density": 0.25,
+            "min_events": 14,
+            "max_events": 18
         },
         6: {
             "id": 6,
@@ -74,7 +84,9 @@ class Act1:
             "biome": "prison",
             "next_location": 7,
             "monster_density": 0.8,
-            "event_density": 0.2
+            "event_density": 0.2,
+            "min_events": 16,
+            "max_events": 20
         },
         7: {
             "id": 7,
@@ -87,6 +99,8 @@ class Act1:
             "next_location": None,
             "monster_density": 0.75,
             "event_density": 0.25,
+            "min_events": 16,
+            "max_events": 20,
             "has_boss": True
         }
     }
@@ -106,7 +120,8 @@ class Act1:
                 "base_exp": 8,
                 "emoji": "🧟",
                 "image": "images/act1/rotten_prisoner.jpg",
-                "description": "Бывший заключенный, умерший от голода. Теперь бродит по коридорам."
+                "description": "Бывший заключенный, умерший от голода. Теперь бродит по коридорам.",
+                "spawn_weight": 40
             },
             {
                 "name": "Большая крыса",
@@ -118,7 +133,8 @@ class Act1:
                 "base_exp": 6,
                 "emoji": "🐀",
                 "image": "images/act1/giant_rat.jpg",
-                "description": "Распухшая от падали крыса, совсем не боится людей."
+                "description": "Распухшая от падали крыса, совсем не боится людей.",
+                "spawn_weight": 35
             },
             {
                 "name": "Падальщик",
@@ -130,7 +146,8 @@ class Act1:
                 "base_exp": 7,
                 "emoji": "🦇",
                 "image": "images/act1/scavenger.jpg",
-                "description": "Существо, питающееся останками. Быстрое и юркое."
+                "description": "Существо, питающееся останками. Быстрое и юркое.",
+                "spawn_weight": 25
             }
         ],
         "magic": [
@@ -144,7 +161,21 @@ class Act1:
                 "base_exp": 15,
                 "emoji": "🧟⚡",
                 "image": "images/act1/crippled_prisoner.jpg",
-                "description": "Его ноги сломаны, но он ползет к тебе с ужасающей скоростью."
+                "description": "Его ноги сломаны, но он ползет к тебе с ужасающей скоростью.",
+                "spawn_weight": 60
+            },
+            {
+                "name": "Крысиный король",
+                "name_en": "Rat King",
+                "base_hp": 40,
+                "damage": (5, 9),
+                "accuracy": 65,
+                "defense": 2,
+                "base_exp": 18,
+                "emoji": "🐀👑",
+                "image": "images/act1/rat_king.jpg",
+                "description": "Огромная крыса-мутант, предводитель стаи.",
+                "spawn_weight": 40
             }
         ],
         "rare": [
@@ -158,7 +189,8 @@ class Act1:
                 "base_exp": 25,
                 "emoji": "👹🔑",
                 "image": "images/act1/prison_warden.jpg",
-                "description": "Бывший надзиратель, теперь сам стал узником тьмы."
+                "description": "Бывший надзиратель, теперь сам стал узником тьмы.",
+                "spawn_weight": 100
             }
         ]
     }
@@ -178,7 +210,8 @@ class Act1:
                 "base_exp": 15,
                 "emoji": "💀",
                 "image": "images/act1/bone_guardian.jpg",
-                "description": "Скелет воина, охраняющий гробницы вечность."
+                "description": "Скелет воина, охраняющий гробницы вечность.",
+                "spawn_weight": 35
             },
             {
                 "name": "Блуждающий череп",
@@ -190,7 +223,8 @@ class Act1:
                 "base_exp": 12,
                 "emoji": "💀👻",
                 "image": "images/act1/wandering_skull.jpg",
-                "description": "Череп, парящий в воздухе и клацающий зубами."
+                "description": "Череп, парящий в воздухе и клацающий зубами.",
+                "spawn_weight": 30
             },
             {
                 "name": "Склепный жук",
@@ -202,7 +236,8 @@ class Act1:
                 "base_exp": 14,
                 "emoji": "🪲",
                 "image": "images/act1/tomb_beetle.jpg",
-                "description": "Огромный жук, питающийся костным мозгом."
+                "description": "Огромный жук, питающийся костным мозгом.",
+                "spawn_weight": 35
             }
         ],
         "magic": [
@@ -216,7 +251,8 @@ class Act1:
                 "base_exp": 25,
                 "emoji": "💀🔮",
                 "image": "images/act1/bone_priest.jpg",
-                "description": "Скелет в рваной мантии, призывающий падальщиков."
+                "description": "Скелет в рваной мантии, призывающий падальщиков.",
+                "spawn_weight": 50
             },
             {
                 "name": "Склепный паук",
@@ -228,7 +264,8 @@ class Act1:
                 "base_exp": 22,
                 "emoji": "🕷️",
                 "image": "images/act1/tomb_spider.jpg",
-                "description": "Паук, свивший гнездо в чьем-то черепе."
+                "description": "Паук, свивший гнездо в чьем-то черепе.",
+                "spawn_weight": 50
             }
         ],
         "rare": [
@@ -242,7 +279,8 @@ class Act1:
                 "base_exp": 40,
                 "emoji": "💀⚔️",
                 "image": "images/act1/captain_guard.jpg",
-                "description": "Бывший капитан стражи, теперь вечный страж катакомб."
+                "description": "Бывший капитан стражи, теперь вечный страж катакомб.",
+                "spawn_weight": 100
             }
         ]
     }
@@ -260,7 +298,8 @@ class Act1:
                 "base_exp": 22,
                 "emoji": "🪱",
                 "image": "images/act1/giant_worm.jpg",
-                "description": "Слепой, но чувствует вибрацию почвы."
+                "description": "Слепой, но чувствует вибрацию почвы.",
+                "spawn_weight": 30
             },
             {
                 "name": "Туннельный крот",
@@ -272,7 +311,8 @@ class Act1:
                 "base_exp": 20,
                 "emoji": "🐭",
                 "image": "images/act1/tunnel_mole.jpg",
-                "description": "Огромный крот с мощными когтями."
+                "description": "Огромный крот с мощными когтями.",
+                "spawn_weight": 25
             },
             {
                 "name": "Ловчий паук",
@@ -284,7 +324,8 @@ class Act1:
                 "base_exp": 24,
                 "emoji": "🕷️",
                 "image": "images/act1/hunter_spider.jpg",
-                "description": "Плетет липкую паутину в темных углах."
+                "description": "Плетет липкую паутину в темных углах.",
+                "spawn_weight": 25
             },
             {
                 "name": "Многоножка-мутант",
@@ -296,7 +337,8 @@ class Act1:
                 "base_exp": 21,
                 "emoji": "🐛",
                 "image": "images/act1/mutant_centipede.jpg",
-                "description": "Ядовитая многоножка, покрытая слизью."
+                "description": "Ядовитая многоножка, покрытая слизью.",
+                "spawn_weight": 20
             }
         ],
         "magic": [
@@ -310,7 +352,8 @@ class Act1:
                 "base_exp": 35,
                 "emoji": "🪱🌿",
                 "image": "images/act1/bark_worm.jpg",
-                "description": "Покрыт панцирем, как кора дерева."
+                "description": "Покрыт панцирем, как кора дерева.",
+                "spawn_weight": 50
             },
             {
                 "name": "Паучиха-матка",
@@ -322,7 +365,8 @@ class Act1:
                 "base_exp": 38,
                 "emoji": "🕷️🥚",
                 "image": "images/act1/spider_queen.jpg",
-                "description": "Носит на спине кокон с яйцами."
+                "description": "Носит на спине кокон с яйцами.",
+                "spawn_weight": 50
             }
         ],
         "rare": [
@@ -336,7 +380,8 @@ class Act1:
                 "base_exp": 60,
                 "emoji": "🪱👑",
                 "image": "images/act1/worm_king.jpg",
-                "description": "Огромный червь с короной из хитина."
+                "description": "Огромный червь с короной из хитина.",
+                "spawn_weight": 100
             }
         ]
     }
@@ -354,7 +399,8 @@ class Act1:
                 "base_exp": 28,
                 "emoji": "👹",
                 "image": "images/act1/orc_worker.jpg",
-                "description": "Носит тяжелый молот, ломает гномьи механизмы."
+                "description": "Носит тяжелый молот, ломает гномьи механизмы.",
+                "spawn_weight": 35
             },
             {
                 "name": "Гномий автоматон",
@@ -366,7 +412,8 @@ class Act1:
                 "base_exp": 32,
                 "emoji": "🤖",
                 "image": "images/act1/dwarven_automaton.jpg",
-                "description": "Механизм, сошедший с ума после веков без хозяина."
+                "description": "Механизм, сошедший с ума после веков без хозяина.",
+                "spawn_weight": 30
             },
             {
                 "name": "Орк-шаман",
@@ -378,7 +425,8 @@ class Act1:
                 "base_exp": 30,
                 "emoji": "👹🔮",
                 "image": "images/act1/orc_shaman.jpg",
-                "description": "Бормочет проклятия и кидается склянками с ядом."
+                "description": "Бормочет проклятия и кидается склянками с ядом.",
+                "spawn_weight": 35
             }
         ],
         "magic": [
@@ -392,7 +440,8 @@ class Act1:
                 "base_exp": 45,
                 "emoji": "👹⚔️",
                 "image": "images/act1/orc_berserker.jpg",
-                "description": "Впадает в ярость и атакует все, что движется."
+                "description": "Впадает в ярость и атакует все, что движется.",
+                "spawn_weight": 60
             },
             {
                 "name": "Ржавый голем",
@@ -404,7 +453,8 @@ class Act1:
                 "base_exp": 48,
                 "emoji": "🗿⚙️",
                 "image": "images/act1/rust_golem.jpg",
-                "description": "Гномий голем, покрытый ржавчиной."
+                "description": "Гномий голем, покрытый ржавчиной.",
+                "spawn_weight": 40
             }
         ],
         "rare": [
@@ -418,7 +468,8 @@ class Act1:
                 "base_exp": 70,
                 "emoji": "👹⚙️",
                 "image": "images/act1/orc_machinist.jpg",
-                "description": "Взломал гномьи механизмы и использует их против врагов."
+                "description": "Взломал гномьи механизмы и использует их против врагов.",
+                "spawn_weight": 100
             }
         ]
     }
@@ -436,7 +487,8 @@ class Act1:
                 "base_exp": 35,
                 "emoji": "👤💢",
                 "image": "images/act1/insane_prisoner.jpg",
-                "description": "Сломленный разумом, он видит врага в каждом."
+                "description": "Сломленный разумом, он видит врага в каждом.",
+                "spawn_weight": 25
             },
             {
                 "name": "Тюремный кадавр",
@@ -448,7 +500,8 @@ class Act1:
                 "base_exp": 38,
                 "emoji": "🧟",
                 "image": "images/act1/prison_cadaver.jpg",
-                "description": "Тело умершего в кандалах, все еще бредущее по коридорам."
+                "description": "Тело умершего в кандалах, все еще бредущее по коридорам.",
+                "spawn_weight": 25
             },
             {
                 "name": "Надзиратель-скелет",
@@ -460,7 +513,8 @@ class Act1:
                 "base_exp": 40,
                 "emoji": "💀🔑",
                 "image": "images/act1/warden_skeleton.jpg",
-                "description": "Скелет с ключами и дубиной, все еще охраняющий камеры."
+                "description": "Скелет с ключами и дубиной, все еще охраняющий камеры.",
+                "spawn_weight": 25
             },
             {
                 "name": "Цепной призрак",
@@ -472,7 +526,8 @@ class Act1:
                 "base_exp": 42,
                 "emoji": "👻⛓️",
                 "image": "images/act1/chain_ghost.jpg",
-                "description": "Призрак, умерший в цепях. Гремит кандалами."
+                "description": "Призрак, умерший в цепях. Гремит кандалами.",
+                "spawn_weight": 25
             }
         ],
         "magic": [
@@ -486,7 +541,8 @@ class Act1:
                 "base_exp": 60,
                 "emoji": "🧟⚔️",
                 "image": "images/act1/executioner_cadaver.jpg",
-                "description": "Бывший палач, теперь сам стал нежитью, но не оставил топор."
+                "description": "Бывший палач, теперь сам стал нежитью, но не оставил топор.",
+                "spawn_weight": 60
             },
             {
                 "name": "Кровавый призрак",
@@ -498,7 +554,8 @@ class Act1:
                 "base_exp": 58,
                 "emoji": "👻🩸",
                 "image": "images/act1/blood_ghost.jpg",
-                "description": "Призрак, истекающий призрачной кровью."
+                "description": "Призрак, истекающий призрачной кровью.",
+                "spawn_weight": 40
             }
         ],
         "rare": [
@@ -512,7 +569,8 @@ class Act1:
                 "base_exp": 90,
                 "emoji": "👹🔗",
                 "image": "images/act1/dungeon_keeper.jpg",
-                "description": "Главный надзиратель, не умерший, но ставший чем-то иным."
+                "description": "Главный надзиратель, не умерший, но ставший чем-то иным.",
+                "spawn_weight": 100
             }
         ]
     }
@@ -530,7 +588,8 @@ class Act1:
                 "base_exp": 45,
                 "emoji": "🧜‍♀️",
                 "image": "images/act1/siren_singer.jpg",
-                "description": "Поет, зачаровывая путников. Голос проникает в разум."
+                "description": "Поет, зачаровывая путников. Голос проникает в разум.",
+                "spawn_weight": 30
             },
             {
                 "name": "Мерзкий сквиг",
@@ -542,7 +601,8 @@ class Act1:
                 "base_exp": 48,
                 "emoji": "🐙",
                 "image": "images/act1/foul_squig.jpg",
-                "description": "Маленький осьминог с острым клювом."
+                "description": "Маленький осьминог с острым клювом.",
+                "spawn_weight": 25
             },
             {
                 "name": "Глубинный краб",
@@ -554,7 +614,8 @@ class Act1:
                 "base_exp": 50,
                 "emoji": "🦀",
                 "image": "images/act1/deep_crab.jpg",
-                "description": "Краб с панцирем, покрытым водорослями и ракушками."
+                "description": "Краб с панцирем, покрытым водорослями и ракушками.",
+                "spawn_weight": 20
             },
             {
                 "name": "Скользкий угорь",
@@ -566,7 +627,8 @@ class Act1:
                 "base_exp": 46,
                 "emoji": "🐍",
                 "image": "images/act1/slippery_eel.jpg",
-                "description": "Бьет током при прикосновении."
+                "description": "Бьет током при прикосновении.",
+                "spawn_weight": 25
             }
         ],
         "magic": [
@@ -580,7 +642,8 @@ class Act1:
                 "base_exp": 65,
                 "emoji": "🧜‍♀️✨",
                 "image": "images/act1/siren_enchantress.jpg",
-                "description": "Ее песня вызывает галлюцинации."
+                "description": "Ее песня вызывает галлюцинации.",
+                "spawn_weight": 55
             },
             {
                 "name": "Спрут-ловец",
@@ -592,21 +655,23 @@ class Act1:
                 "base_exp": 68,
                 "emoji": "🐙🎣",
                 "image": "images/act1/hunter_octopus.jpg",
-                "description": "Щупальца тянутся из темной воды."
+                "description": "Щупальца тянутся из темной воды.",
+                "spawn_weight": 45
             }
         ],
         "rare": [
             {
-                "name": "Древний спрут",
-                "name_en": "Ancient Octopus",
-                "base_hp": 180,
-                "damage": (20, 35),
-                "accuracy": 75,
-                "defense": 15,
-                "base_exp": 150,
-                "emoji": "🐙👑",
-                "image": "images/act1/ancient_octopus.jpg",
-                "description": "Огромный осьминог, почти бог этих вод."
+                "name": "Древний страж глубин",
+                "name_en": "Ancient Deep Guardian",
+                "base_hp": 150,
+                "damage": (18, 30),
+                "accuracy": 72,
+                "defense": 12,
+                "base_exp": 120,
+                "emoji": "🐙👁️",
+                "image": "images/act1/deep_guardian.jpg",
+                "description": "Древнее существо, охраняющее вход в логово спрута.",
+                "spawn_weight": 100
             }
         ]
     }
@@ -654,7 +719,8 @@ class Act1:
                 "first": "Товар есть? Деньги есть? У меня есть все, что нужно выжившему. Нашел в катакомбах... ну, не спрашивай где.",
                 "idle": "Заходи, если что-то нужно. Или если хочешь что-то продать."
             },
-            "is_merchant": True
+            "is_merchant": True,
+            "shop_items": ["rusted_sword", "spiked_club", "glass_dagger"]
         },
         {
             "id": "brock",
@@ -665,7 +731,8 @@ class Act1:
                 "first": "Ха! Живой! Я Брок, кую что могу из того хлама, что нахожу в туннелях. Могу и тебе сварганить что-нибудь... за монету, конечно.",
                 "idle": "У меня есть пара неплохих клинков. Сам проверял на местных тварях."
             },
-            "is_blacksmith": True
+            "is_blacksmith": True,
+            "shop_items": ["copper_sword", "stone_hammer"]
         },
         {
             "id": "ellie",
@@ -690,6 +757,7 @@ class Act1:
             "id": "quest1",
             "name": "Потерянный амулет",
             "giver": "Безумная Элли",
+            "giver_id": "ellie",
             "description": "Элли потеряла свой амулет где-то в Костях катакомб. Без него она не может видеть будущее. Найди амулет.",
             "objectives": [
                 {"type": "find_item", "item": "amulet", "location": 3, "progress": 0, "required": 1}
@@ -704,6 +772,7 @@ class Act1:
             "id": "quest2",
             "name": "Проклятие надзирателя",
             "giver": "Безумная Элли",
+            "giver_id": "ellie",
             "description": "Надзиратель тюрьмы мучает души заключенных. Элли просит освободить их, убив надзирателя.",
             "objectives": [
                 {"type": "kill_boss", "boss": "Смотритель темниц", "location": 6, "progress": 0, "required": 1}
@@ -719,6 +788,7 @@ class Act1:
             "id": "quest3",
             "name": "Выход наружу",
             "giver": "Безумная Элли",
+            "giver_id": "ellie",
             "description": "Элли видела видение - выход через Грот сирен. Убей древнего спрута и выйди на свободу.",
             "objectives": [
                 {"type": "kill_boss", "boss": "Древний спрут", "location": 7, "progress": 0, "required": 1}
@@ -734,6 +804,7 @@ class Act1:
             "id": "side_quest1",
             "name": "Помоги выжившим",
             "giver": "Старик Морли",
+            "giver_id": "morley",
             "description": "В тюрьме остались выжившие. Морли просит найти их и привести в убежище.",
             "objectives": [
                 {"type": "rescue", "target": "prisoners", "location": 6, "progress": 0, "required": 3}
@@ -747,6 +818,7 @@ class Act1:
             "id": "side_quest2",
             "name": "Червивая проблема",
             "giver": "Торговец Грег",
+            "giver_id": "greg",
             "description": "Черви расплодились в туннелях и мешают Грегу собирать хлам. Убей 10 червей.",
             "objectives": [
                 {"type": "kill_monsters", "monster": "Огромный червь", "location": 4, "progress": 0, "required": 10}
@@ -759,51 +831,75 @@ class Act1:
     }
     
     # ============= ТОВАРЫ В УБЕЖИЩЕ =============
-    MERCHANT_ITEMS = [
-        {
+    MERCHANT_ITEMS = {
+        "rusted_sword": {
             "name": "Ржавый меч",
             "type": "weapon",
             "base": "rusted_sword",
             "price": 50,
             "min_level": 1,
-            "description": "Старый, но еще острый меч."
+            "description": "Старый, но еще острый меч.",
+            "emoji": "⚔️"
         },
-        {
+        "spiked_club": {
             "name": "Дубинка с шипами",
             "type": "weapon",
             "base": "spiked_club",
             "price": 60,
             "min_level": 1,
-            "description": "Простое, но эффективное оружие."
+            "description": "Простое, но эффективное оружие.",
+            "emoji": "🔨"
         },
-        {
+        "glass_dagger": {
             "name": "Стеклянный кинжал",
             "type": "weapon",
             "base": "glass_dagger",
             "price": 45,
             "min_level": 1,
-            "description": "Хрупкий, но острый."
-        }
-    ]
-    
-    BLACKSMITH_ITEMS = [
-        {
+            "description": "Хрупкий, но острый.",
+            "emoji": "🗡️"
+        },
+        "copper_sword": {
             "name": "Медный меч",
             "type": "weapon",
             "base": "copper_sword",
             "price": 120,
             "min_level": 2,
-            "description": "Неплохой меч из меди."
+            "description": "Неплохой меч из меди.",
+            "emoji": "⚔️"
         },
-        {
+        "stone_hammer": {
             "name": "Каменный молот",
             "type": "weapon",
             "base": "stone_hammer",
             "price": 150,
             "min_level": 2,
-            "description": "Тяжелый, но мощный."
+            "description": "Тяжелый, но мощный.",
+            "emoji": "🔨"
         }
-    ]
+    }
+    
+    # ============= МЕТОДЫ ДЛЯ РАБОТЫ С ДАННЫМИ =============
+    
+    @classmethod
+    def get_location_by_id(cls, location_id):
+        """Получает локацию по ID"""
+        return cls.LOCATIONS.get(location_id)
+    
+    @classmethod
+    def get_first_location(cls):
+        """Получает первую локацию акта"""
+        return cls.LOCATIONS.get(1)
+    
+    @classmethod
+    def get_haven_location(cls):
+        """Получает убежище"""
+        return cls.LOCATIONS.get(2)
+    
+    @classmethod
+    def get_final_location(cls):
+        """Получает финальную локацию акта"""
+        return cls.LOCATIONS.get(7)
     
     @classmethod
     def get_location_monsters(cls, location_id, rarity="common"):
@@ -822,16 +918,88 @@ class Act1:
     
     @classmethod
     def get_random_monster(cls, location_id, rarity="common"):
-        """Получает случайного монстра из локации"""
+        """Получает случайного монстра из локации с учетом весов"""
         monsters = cls.get_location_monsters(location_id, rarity)
-        if monsters:
-            return random.choice(monsters)
-        return None
+        if not monsters:
+            return None
+        
+        # Выбор с учетом весов
+        weights = [m.get("spawn_weight", 100) for m in monsters]
+        return random.choices(monsters, weights=weights)[0]
     
     @classmethod
-    def get_location_by_id(cls, location_id):
-        """Получает локацию по ID"""
-        return cls.LOCATIONS.get(location_id)
+    def generate_location_events(cls, location_id):
+        """Генерирует события для локации"""
+        location = cls.get_location_by_id(location_id)
+        if not location or location.get("is_safe"):
+            return []
+        
+        events = []
+        num_events = random.randint(location.get("min_events", 10), location.get("max_events", 15))
+        
+        monster_density = location.get("monster_density", 0.7)
+        event_density = location.get("event_density", 0.3)
+        
+        for _ in range(num_events):
+            if random.random() < monster_density:
+                # Генерируем монстра
+                rarity_roll = random.random()
+                if rarity_roll < 0.7:
+                    rarity = "common"
+                elif rarity_roll < 0.95:
+                    rarity = "magic"
+                else:
+                    rarity = "rare"
+                
+                monster = cls.get_random_monster(location_id, rarity)
+                if monster:
+                    events.append({
+                        "type": "battle",
+                        "location_id": location_id,
+                        "location_name": location["name"],
+                        "monster": monster.copy(),
+                        "rarity": rarity,
+                        "completed": False
+                    })
+            else:
+                # Генерируем событие
+                event_type = random.choice(["chest", "trap", "rest"])
+                if event_type == "chest":
+                    rarity_roll = random.random()
+                    if rarity_roll < 0.7:
+                        chest_rarity = "common"
+                    elif rarity_roll < 0.95:
+                        chest_rarity = "magic"
+                    else:
+                        chest_rarity = "rare"
+                    
+                    events.append({
+                        "type": "chest",
+                        "rarity": chest_rarity,
+                        "location_id": location_id,
+                        "location_name": location["name"],
+                        "completed": False
+                    })
+                elif event_type == "trap":
+                    damage = 10 + location["area_level"] * 2
+                    events.append({
+                        "type": "trap",
+                        "damage": damage,
+                        "location_id": location_id,
+                        "location_name": location["name"],
+                        "completed": False
+                    })
+                else:
+                    heal = 20 + location["area_level"] * 5
+                    events.append({
+                        "type": "rest",
+                        "heal": heal,
+                        "location_id": location_id,
+                        "location_name": location["name"],
+                        "completed": False
+                    })
+        
+        return events
     
     @classmethod
     def get_npc_by_id(cls, npc_id):
@@ -845,3 +1013,156 @@ class Act1:
     def get_quest_by_id(cls, quest_id):
         """Получает квест по ID"""
         return cls.QUESTS.get(quest_id)
+    
+    @classmethod
+    def get_merchant_item(cls, item_id):
+        """Получает товар по ID"""
+        return cls.MERCHANT_ITEMS.get(item_id)
+    
+    @classmethod
+    def get_available_quests(cls, player_level=1):
+        """Получает доступные квесты для игрока"""
+        available = []
+        for quest_id, quest in cls.QUESTS.items():
+            # Здесь можно добавить проверку на уровень и предыдущие квесты
+            available.append(quest)
+        return available
+    
+    @classmethod
+    def check_quest_objective(cls, quest, objective_type, target, location_id=None):
+        """Проверяет выполнение цели квеста"""
+        for obj in quest["objectives"]:
+            if obj["type"] == objective_type:
+                if objective_type == "kill_boss" and obj["boss"] == target:
+                    return True
+                elif objective_type == "kill_monsters" and obj["monster"] == target:
+                    return True
+                elif objective_type == "find_item" and obj["item"] == target and obj["location"] == location_id:
+                    return True
+                elif objective_type == "rescue" and obj["target"] == target and obj["location"] == location_id:
+                    return True
+        return False
+    
+    @classmethod
+    def update_quest_progress(cls, quest, objective_type, target, amount=1):
+        """Обновляет прогресс квеста"""
+        for obj in quest["objectives"]:
+            if obj["type"] == objective_type:
+                if objective_type == "kill_boss" and obj["boss"] == target:
+                    obj["progress"] = min(obj["progress"] + amount, obj["required"])
+                    return obj["progress"] >= obj["required"]
+                elif objective_type == "kill_monsters" and obj["monster"] == target:
+                    obj["progress"] = min(obj["progress"] + amount, obj["required"])
+                    return obj["progress"] >= obj["required"]
+                elif objective_type == "find_item" and obj["item"] == target:
+                    obj["progress"] = min(obj["progress"] + amount, obj["required"])
+                    return obj["progress"] >= obj["required"]
+                elif objective_type == "rescue" and obj["target"] == target:
+                    obj["progress"] = min(obj["progress"] + amount, obj["required"])
+                    return obj["progress"] >= obj["required"]
+        return False
+    
+    @classmethod
+    def is_quest_completed(cls, quest):
+        """Проверяет, выполнен ли квест"""
+        for obj in quest["objectives"]:
+            if obj["progress"] < obj["required"]:
+                return False
+        return True
+    
+    @classmethod
+    def get_quest_rewards(cls, quest_id):
+        """Получает награды за квест"""
+        quest = cls.get_quest_by_id(quest_id)
+        if quest:
+            return quest.get("rewards", {})
+        return {}
+    
+    @classmethod
+    def get_next_quest(cls, quest_id):
+        """Получает следующий квест после текущего"""
+        quest = cls.get_quest_by_id(quest_id)
+        if quest and "next_quest" in quest:
+            return cls.get_quest_by_id(quest["next_quest"])
+        return None
+    
+    @classmethod
+    def generate_act1_dungeon(cls):
+        """Генерирует полное подземелье для акта 1"""
+        dungeon = []
+        
+        # Локация 1: Вход в бездну
+        location1_events = cls.generate_location_events(1)
+        dungeon.extend(location1_events)
+        
+        # Добавляем переход в убежище
+        dungeon.append({
+            "type": "transition",
+            "to_location": 2,
+            "message": "Ты замечаешь тусклый свет вдалеке. Похоже, там кто-то есть...",
+            "completed": False
+        })
+        
+        # Локация 3: Кости катакомб
+        location3_events = cls.generate_location_events(3)
+        dungeon.extend(location3_events)
+        
+        # Переход к локации 4
+        dungeon.append({
+            "type": "transition",
+            "to_location": 4,
+            "message": "Кости заканчиваются, стены становятся мягкими и влажными. Туннели червей...",
+            "completed": False
+        })
+        
+        # Локация 4: Червивые туннели
+        location4_events = cls.generate_location_events(4)
+        dungeon.extend(location4_events)
+        
+        # Переход к локации 5
+        dungeon.append({
+            "type": "transition",
+            "to_location": 5,
+            "message": "Туннели расширяются, появляются грубые каменные стены. Гномьи чертоги...",
+            "completed": False
+        })
+        
+        # Локация 5: Гномьи чертоги
+        location5_events = cls.generate_location_events(5)
+        dungeon.extend(location5_events)
+        
+        # Переход к локации 6
+        dungeon.append({
+            "type": "transition",
+            "to_location": 6,
+            "message": "Запах смерти становится невыносимым. Впереди тюрьма...",
+            "completed": False
+        })
+        
+        # Локация 6: Тюрьма скорби
+        location6_events = cls.generate_location_events(6)
+        dungeon.extend(location6_events)
+        
+        # Переход к локации 7
+        dungeon.append({
+            "type": "transition",
+            "to_location": 7,
+            "message": "Слышен шум воды. Подземное озеро...",
+            "completed": False
+        })
+        
+        # Локация 7: Грот сирен
+        location7_events = cls.generate_location_events(7)
+        dungeon.extend(location7_events)
+        
+        # Добавляем босса
+        dungeon.append({
+            "type": "boss",
+            "location_id": 7,
+            "location_name": cls.LOCATIONS[7]["name"],
+            "boss": cls.ACT1_BOSS.copy(),
+            "area_level": 8,
+            "completed": False
+        })
+        
+        return dungeon
