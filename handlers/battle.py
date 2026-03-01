@@ -13,7 +13,7 @@ from systems.combat import CombatSystem, CombatAction, ActionResult
 from systems.area_level import AreaLevelSystem, DifficultyCalculator
 from systems.loot import LootSystem
 from systems.progression import ProgressionSystem
-from utils.keyboards import get_battle_keyboard, get_battle_action_keyboard
+from utils.keyboards import get_battle_action_keyboard, get_battle_result_keyboard
 from utils.helpers import format_battle_view, format_hp_bar
 
 # ============= ОСНОВНОЙ ХЕНДЛЕР БОЯ =============
@@ -73,6 +73,10 @@ class BattleHandler:
         @self.dp.callback_query(lambda c: c.data == "battle_retry")
         async def battle_retry(callback: types.CallbackQuery, state: FSMContext):
             await self.retry_battle(callback, state)
+        
+        @self.dp.callback_query(lambda c: c.data == "battle_log")
+        async def battle_log(callback: types.CallbackQuery, state: FSMContext):
+            await self.show_battle_log(callback, state)
     
     async def start_battle(self, callback: types.CallbackQuery, state: FSMContext):
         """Начинает бой"""
@@ -95,7 +99,6 @@ class BattleHandler:
         monster_data = current_event["monster"]
         
         # Получаем уровень локации
-        location = Act1.get_location_by_id(player.current_location)
         area_level = AreaLevelSystem.get_area_level(player.current_location)
         
         # Создаем врага
@@ -235,10 +238,7 @@ class BattleHandler:
         text += result.get_text()
         text += f"\n\n**Продолжить?**"
         
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="➡️ Продолжить", callback_data="battle_continue")],
-            [InlineKeyboardButton(text="📋 Лог боя", callback_data="battle_log")]
-        ])
+        keyboard = get_battle_result_keyboard()
         
         # Проверяем наличие изображения
         if enemy.image_path and os.path.exists(enemy.image_path):
@@ -275,6 +275,9 @@ class BattleHandler:
         
         # Восстанавливаем заряды фласок
         charges_restored = player.add_flask_charge()
+        
+        # Добавляем убийство в статистику
+        player.add_kill(enemy.name)
         
         # Генерируем лут
         area_level = AreaLevelSystem.get_area_level(player.current_location)
@@ -347,7 +350,7 @@ class BattleHandler:
         enemy = data['battle_enemy']
         
         # Увеличиваем счетчик смертей
-        player.deaths += 1
+        player.add_death()
         
         # Частичное восстановление в убежище
         player.hp = player.max_hp // 2
@@ -456,6 +459,26 @@ class BattleHandler:
         
         await callback.message.edit_text(text, reply_markup=keyboard)
         await callback.answer()
+    
+    async def process_battle_action(self, callback: types.CallbackQuery, state: FSMContext):
+        """Обрабатывает действие из callback data"""
+        action = callback.data.split('_')[2]
+        
+        action_map = {
+            "attack": CombatAction.ATTACK,
+            "heavy": CombatAction.HEAVY_ATTACK,
+            "fast": CombatAction.FAST_ATTACK,
+            "defend": CombatAction.DEFEND,
+            "dodge": CombatAction.DODGE,
+            "flask": CombatAction.USE_FLASK,
+            "run": CombatAction.RUN
+        }
+        
+        combat_action = action_map.get(action)
+        if combat_action:
+            await self.process_action(callback, state, combat_action)
+        else:
+            await callback.answer("Неизвестное действие")
 
 
 # ============= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =============
