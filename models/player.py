@@ -127,11 +127,11 @@ class Player:
             damage = random.randint(min_dmg, max_dmg)
             
             # Бонус от силы для тяжелого оружия
-            if weapon.weapon_type in ["one_hand_mace", "two_hand_mace", "one_hand_axe", "two_hand_axe"]:
+            if hasattr(weapon, 'weapon_type') and weapon.weapon_type in ["one_hand_mace", "two_hand_mace", "one_hand_axe", "two_hand_axe"]:
                 damage = int(damage * (1 + self.strength / 200))
             
             # Бонус от ловкости для легкого оружия
-            if weapon.weapon_type in ["dagger", "claw", "thrusting_sword"]:
+            if hasattr(weapon, 'weapon_type') and weapon.weapon_type in ["dagger", "claw", "thrusting_sword"]:
                 damage = int(damage * (1 + self.dexterity / 200))
                 self.crit_chance += self.dexterity // 20
             
@@ -455,9 +455,9 @@ class Player:
         # Обновляем прогресс
         updated = Act1.update_quest_progress(quest_info, objective_type, target, amount)
         
-        # Синхронизируем с данными игрока
+        # Синхронизируем с данными игрока - ИСПРАВЛЕННАЯ СТРОКА
         for obj in quest_info["objectives"]:
-            key = f"{obj['type']}_{obj.get('item', obj.get('boss', obj.get('monster', obj.get('target', '')))}"
+            key = f"{obj['type']}_{obj.get('item', obj.get('boss', obj.get('monster', obj.get('target', ''))))}"
             quest_data["progress"][key] = obj["progress"]
         
         # Проверяем выполнение квеста
