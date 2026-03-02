@@ -93,8 +93,6 @@ class NPCData:
         return None
 
 
-# ============= ХЕНДЛЕР УБЕЖИЩА =============
-
 class HavenHandler:
     """Хендлер для управления убежищем"""
     
@@ -102,6 +100,7 @@ class HavenHandler:
         self.bot = bot
         self.dp = dp
         self.handlers = handlers_container
+        self.bot_username = None
         self._register_handlers()
     
     def _register_handlers(self):
@@ -144,8 +143,26 @@ class HavenHandler:
         async def leave_haven(callback: types.CallbackQuery, state: FSMContext):
             await self.leave_haven(callback, state)
     
+    async def enter_haven_command(self, message: types.Message, state: FSMContext):
+        """Обрабатывает команду return_haven из гиперссылки"""
+        # Создаем искусственный callback для переиспользования логики
+        class DummyCallback:
+            def __init__(self, message):
+                self.message = message
+                self.bot = message.bot
+            
+            async def answer(self):
+                pass
+        
+        await self.enter_haven(DummyCallback(message), state)
+    
     async def enter_haven(self, callback: types.CallbackQuery, state: FSMContext):
         """Вход в убежище"""
+        # Получаем username бота
+        if not self.bot_username:
+            bot_info = await self.bot.me()
+            self.bot_username = bot_info.username
+        
         data = await state.get_data()
         player = data.get('player')
         
@@ -198,6 +215,7 @@ class HavenHandler:
         text += (
             f"**Твое состояние:**\n"
             f"👤 {player.hp}/{player.max_hp} ❤️ | Ур. {player.level}\n"
+            f"💙 {player.mana}/{player.max_mana} MP\n"
             f"💰 {player.gold} золота\n"
             f"🧪 Фласок: {len(player.flasks)}/{player.max_flasks}"
         )
@@ -430,11 +448,3 @@ class HavenHandler:
         """Выход из убежища"""
         await self.handlers.dungeon.show_dungeon(callback.message, state)
         await callback.answer()
-
-
-# ============= ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ =============
-
-async def show_haven(message: types.Message, state: FSMContext):
-    """Внешняя функция для показа убежища"""
-    # Эта функция будет вызвана через контейнер handlers
-    pass
