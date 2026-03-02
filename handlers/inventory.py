@@ -4,12 +4,14 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from models.player import Player
 from models.item import Item, ItemType, ItemRarity, MeleeWeapon, Flask
-from utils.keyboards import get_inventory_keyboard, get_item_action_keyboard
 from utils.helpers import format_item_list, format_equipment_slots
 
+# ============= ОСНОВНОЙ ХЕНДЛЕР ИНВЕНТАРЯ =============
 
 class InventoryHandler:
     """Хендлер для управления инвентарем и экипировкой"""
+    
+    MAX_INVENTORY_SLOTS = 20  # Максимум 20 слотов в инвентаре
     
     def __init__(self, bot, dp, handlers_container):
         self.bot = bot
@@ -52,7 +54,7 @@ class InventoryHandler:
         async def sort_inventory(callback: types.CallbackQuery, state: FSMContext):
             await self.sort_inventory(callback, state)
         
-        @self.dp.callback_query(lambda c: c.data == "drop_item")
+        @self.dp.callback_query(lambda c: c.data.startswith("drop_"))
         async def drop_item(callback: types.CallbackQuery, state: FSMContext):
             await self.drop_item(callback, state)
         
@@ -69,7 +71,7 @@ class InventoryHandler:
             await self.show_inventory(callback, state)
     
     async def show_inventory(self, callback: types.CallbackQuery, state: FSMContext):
-        """Показывает инвентарь игрока"""
+        """Показывает инвентарь игрока с экипировкой в виде человечка"""
         data = await state.get_data()
         player = data.get('player')
         
@@ -77,89 +79,183 @@ class InventoryHandler:
             await callback.answer("Ошибка: игрок не найден")
             return
         
-        text = self._format_inventory(player)
-        keyboard = get_inventory_keyboard(player)
+        text = self._format_inventory_with_equipment(player)
+        keyboard = self._get_inventory_keyboard(player)
         
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
         await callback.answer()
     
-    def _format_inventory(self, player):
-        """Форматирует инвентарь для отображения"""
-        if not player.inventory and not player.flasks:
-            return f"🎒 **Инвентарь пуст**\n\n💰 Золото: {player.gold}"
-        
+    def _format_inventory_with_equipment(self, player):
+        """Форматирует инвентарь с экипировкой в виде человечка"""
         lines = ["🎒 **ИНВЕНТАРЬ**\n"]
         
-        # Группируем предметы по типу
-        weapons = []
-        armor = []
-        other = []
-        flasks = []
+        # Экипировка в виде человечка
+        lines.append("**ЭКИПИРОВКА:**")
         
-        for item in player.inventory:
-            if item.item_type == ItemType.WEAPON:
-                weapons.append(item)
-            elif item.item_type in [ItemType.HELMET, ItemType.ARMOR, ItemType.GLOVES, 
-                                    ItemType.BOOTS, ItemType.BELT]:
-                armor.append(item)
-            elif item.item_type in [ItemType.RING, ItemType.AMULET]:
-                other.append(item)
-            elif item.item_type == ItemType.FLASK:
-                flasks.append(item)
+        # Получаем экипированные предметы
+        weapon = player.equipped.get(ItemType.WEAPON)
+        shield = None  # Щит пока не реализован, но оставляем место
+        helmet = player.equipped.get(ItemType.HELMET)
+        ring1 = player.equipped.get(ItemType.RING)
+        armor = player.equipped.get(ItemType.ARMOR)
+        ring2 = None
+        gloves = player.equipped.get(ItemType.GLOVES)
+        belt = player.equipped.get(ItemType.BELT)
+        boots = player.equipped.get(ItemType.BOOTS)
         
-        # Нумерация
-        index = 1
+        # Находим второе кольцо (если есть)
+        rings = [item for item in player.inventory if item.item_type == ItemType.RING and item != ring1]
+        if rings:
+            ring2 = rings[0]
         
-        # Оружие
-        if weapons:
-            lines.append("**⚔️ ОРУЖИЕ:**")
-            for item in weapons:
-                equipped_mark = " [Э]" if self._is_equipped(player, item) else ""
-                req_status = self._check_requirements(player, item)
-                lines.append(f"{index}. {item.get_name_colored()}{equipped_mark}{req_status}")
-                index += 1
-            lines.append("")
+        # Форматируем текст для каждого слота
+        weapon_text = "⚔️ Пусто" if not weapon else weapon.get_name_colored()
+        shield_text = "🛡️ Пусто"  # Заглушка для щита
+        helmet_text = "⛑️ Пусто" if not helmet else helmet.get_name_colored()
+        ring1_text = "💍 Пусто" if not ring1 else ring1.get_name_colored()
+        armor_text = "🛡️ Пусто" if not armor else armor.get_name_colored()
+        ring2_text = "💍 Пусто" if not ring2 else ring2.get_name_colored()
+        gloves_text = "🧤 Пусто" if not gloves else gloves.get_name_colored()
+        belt_text = "🔗 Пусто" if not belt else belt.get_name_colored()
+        boots_text = "👢 Пусто" if not boots else boots.get_name_colored()
+        empty_text = "⬜"
         
-        # Броня
-        if armor:
-            lines.append("**🛡️ БРОНЯ:**")
-            for item in armor:
-                equipped_mark = " [Э]" if self._is_equipped(player, item) else ""
-                req_status = self._check_requirements(player, item)
-                lines.append(f"{index}. {item.get_name_colored()}{equipped_mark}{req_status}")
-                index += 1
-            lines.append("")
+        # Обрезаем длинные названия (максимум 12 символов)
+        weapon_text = weapon_text[:12] + "..." if len(weapon_text) > 12 else weapon_text
+        shield_text = shield_text[:12] + "..." if len(shield_text) > 12 else shield_text
+        helmet_text = helmet_text[:12] + "..." if len(helmet_text) > 12 else helmet_text
+        ring1_text = ring1_text[:10] + "..." if len(ring1_text) > 10 else ring1_text
+        armor_text = armor_text[:12] + "..." if len(armor_text) > 12 else armor_text
+        ring2_text = ring2_text[:10] + "..." if len(ring2_text) > 10 else ring2_text
+        gloves_text = gloves_text[:10] + "..." if len(gloves_text) > 10 else gloves_text
+        belt_text = belt_text[:10] + "..." if len(belt_text) > 10 else belt_text
+        boots_text = boots_text[:10] + "..." if len(boots_text) > 10 else boots_text
         
-        # Аксессуары
-        if other:
-            lines.append("**💍 АКСЕССУАРЫ:**")
-            for item in other:
-                equipped_mark = " [Э]" if self._is_equipped(player, item) else ""
-                req_status = self._check_requirements(player, item)
-                lines.append(f"{index}. {item.get_name_colored()}{equipped_mark}{req_status}")
-                index += 1
-            lines.append("")
+        # Строим схему экипировки
+        lines.append("")
         
-        # Фласки в инвентаре
-        if flasks:
-            lines.append("**🧪 ФЛАСКИ (В ИНВЕНТАРЕ):**")
-            for item in flasks:
-                lines.append(f"{index}. {item.get_name_colored()} [{item.current_uses}/{item.flask_data['uses']}]")
-                index += 1
-            lines.append("")
+        # Строка 1: Оружие, пустая кнопка, Щит
+        lines.append(f"    {weapon_text}         {empty_text}         {shield_text}    ")
+        lines.append("")
         
-        # Экипированные фласки
-        if player.flasks:
-            lines.append("**🧪 ФЛАСКИ (ЭКИПИРОВАНЫ):**")
-            for i, flask in enumerate(player.flasks):
-                marker = "👉" if i == player.active_flask else "  "
-                flask_type = "🟢💊" if i == 0 else "⚪️✨" if i == 1 else "🔵🛡️"
-                lines.append(f"{marker} {flask_type} {flask.get_name_colored()} [{flask.current_uses}/{flask.flask_data['uses']}]")
-            lines.append("")
+        # Строка 2: пустая кнопка, Шлем, пустая кнопка
+        lines.append(f"    {empty_text}           {helmet_text}           {empty_text}    ")
+        lines.append("")
         
+        # Строка 3: Кольцо, Нагрудник, Кольцо
+        lines.append(f"    {ring1_text}        {armor_text}        {ring2_text}    ")
+        lines.append("")
+        
+        # Строка 4: Перчатки, Пояс, Сапоги
+        lines.append(f"    {gloves_text}        {belt_text}        {boots_text}    ")
+        lines.append("")
+        
+        # Строка 5: три пустых кнопки (для будущих слотов)
+        lines.append(f"    {empty_text}           {empty_text}           {empty_text}    ")
+        lines.append("")
+        
+        # Инвентарь с лутом (максимум 20 слотов)
+        lines.append("**ЛУТ В ИНВЕНТАРЕ:**")
+        
+        if not player.inventory:
+            lines.append("  Пусто")
+        else:
+            # Показываем предметы с индексами
+            for i, item in enumerate(player.inventory[:self.MAX_INVENTORY_SLOTS], 1):
+                if isinstance(item, Flask):
+                    flask_type = "🟢💊" if "💊" in item.emoji else "🟢Ⓜ️" if "Ⓜ️" in item.emoji else "⚪️✨" if "✨" in item.emoji else "🔵🛡️"
+                    lines.append(f"{i}. {flask_type} {item.get_name_colored()} [{item.current_uses}/{item.flask_data['uses']}]")
+                else:
+                    lines.append(f"{i}. {item.get_name_colored()}")
+            
+            # Показываем количество свободных слотов
+            free_slots = self.MAX_INVENTORY_SLOTS - len(player.inventory)
+            if free_slots > 0:
+                lines.append(f"  ... еще {free_slots} слотов свободно")
+        
+        lines.append("")
         lines.append(f"💰 Золото: {player.gold}")
         
         return "\n".join(lines)
+    
+    def _get_inventory_keyboard(self, player):
+        """Создает клавиатуру для инвентаря"""
+        buttons = []
+        
+        # Кнопки для просмотра предметов (по 5 в ряд)
+        if player.inventory:
+            items_row = []
+            for i in range(min(5, len(player.inventory))):
+                items_row.append(InlineKeyboardButton(text=f"📦 {i+1}", callback_data=f"inspect_{i+1}"))
+            buttons.append(items_row)
+            
+            # Вторая строка предметов, если есть
+            if len(player.inventory) > 5:
+                items_row2 = []
+                for i in range(5, min(10, len(player.inventory))):
+                    items_row2.append(InlineKeyboardButton(text=f"📦 {i+1}", callback_data=f"inspect_{i+1}"))
+                buttons.append(items_row2)
+            
+            # Третья строка предметов, если есть
+            if len(player.inventory) > 10:
+                items_row3 = []
+                for i in range(10, min(15, len(player.inventory))):
+                    items_row3.append(InlineKeyboardButton(text=f"📦 {i+1}", callback_data=f"inspect_{i+1}"))
+                buttons.append(items_row3)
+            
+            # Четвертая строка предметов, если есть
+            if len(player.inventory) > 15:
+                items_row4 = []
+                for i in range(15, min(20, len(player.inventory))):
+                    items_row4.append(InlineKeyboardButton(text=f"📦 {i+1}", callback_data=f"inspect_{i+1}"))
+                buttons.append(items_row4)
+        
+        # Кнопки для снятия экипировки
+        equip_row = []
+        if player.equipped[ItemType.WEAPON]:
+            equip_row.append(InlineKeyboardButton(text="⚔️ Снять оружие", callback_data="unequip_weapon"))
+        if player.equipped[ItemType.HELMET]:
+            equip_row.append(InlineKeyboardButton(text="⛑️ Снять шлем", callback_data="unequip_helmet"))
+        if player.equipped[ItemType.ARMOR]:
+            equip_row.append(InlineKeyboardButton(text="🛡️ Снять броню", callback_data="unequip_armor"))
+        if equip_row:
+            buttons.append(equip_row)
+        
+        equip_row2 = []
+        if player.equipped[ItemType.GLOVES]:
+            equip_row2.append(InlineKeyboardButton(text="🧤 Снять перчатки", callback_data="unequip_gloves"))
+        if player.equipped[ItemType.BELT]:
+            equip_row2.append(InlineKeyboardButton(text="🔗 Снять пояс", callback_data="unequip_belt"))
+        if player.equipped[ItemType.BOOTS]:
+            equip_row2.append(InlineKeyboardButton(text="👢 Снять сапоги", callback_data="unequip_boots"))
+        if equip_row2:
+            buttons.append(equip_row2)
+        
+        equip_row3 = []
+        if player.equipped[ItemType.RING]:
+            equip_row3.append(InlineKeyboardButton(text="💍 Снять кольцо", callback_data="unequip_ring"))
+        if player.equipped[ItemType.AMULET]:
+            equip_row3.append(InlineKeyboardButton(text="📿 Снять амулет", callback_data="unequip_amulet"))
+        if equip_row3:
+            buttons.append(equip_row3)
+        
+        # Кнопки управления
+        control_row = []
+        if len(player.inventory) > 1:
+            control_row.append(InlineKeyboardButton(text="📦 Сортировать", callback_data="sort_inventory"))
+        if player.flasks:
+            control_row.append(InlineKeyboardButton(text="🧪 Сменить фласку", callback_data="switch_flask"))
+        if control_row:
+            buttons.append(control_row)
+        
+        # Кнопка удаления и возврата
+        nav_row = [
+            InlineKeyboardButton(text="🗑️ Удалить", callback_data="drop_0"),
+            InlineKeyboardButton(text="◀ Назад", callback_data="battle_back")
+        ]
+        buttons.append(nav_row)
+        
+        return InlineKeyboardMarkup(inline_keyboard=buttons)
     
     def _is_equipped(self, player, item):
         """Проверяет, экипирован ли предмет"""
@@ -184,7 +280,7 @@ class InventoryHandler:
         return ""
     
     async def show_equipment(self, callback: types.CallbackQuery, state: FSMContext):
-        """Показывает экипировку игрока"""
+        """Показывает детальную экипировку"""
         data = await state.get_data()
         player = data.get('player')
         
@@ -192,21 +288,20 @@ class InventoryHandler:
             await callback.answer("Ошибка: игрок не найден")
             return
         
-        text = self._format_equipment(player)
+        text = self._format_equipment_details(player)
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🎒 Инвентарь", callback_data="show_inventory")],
-            [InlineKeyboardButton(text="◀ Назад", callback_data="back_to_dungeon")]
+            [InlineKeyboardButton(text="◀ Назад", callback_data="battle_back")]
         ])
         
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
         await callback.answer()
     
-    def _format_equipment(self, player):
-        """Форматирует экипировку для отображения"""
-        lines = ["📊 **ЭКИПИРОВКА**\n"]
+    def _format_equipment_details(self, player):
+        """Форматирует детальную информацию об экипировке"""
+        lines = ["📊 **ДЕТАЛЬНАЯ ЭКИПИРОВКА**\n"]
         
-        # Слоты экипировки
         slot_names = {
             ItemType.WEAPON: "⚔️ Оружие",
             ItemType.HELMET: "⛑️ Шлем",
@@ -224,14 +319,11 @@ class InventoryHandler:
                 lines.append(f"**{slot_name}:**")
                 lines.append(f"└ {item.get_name_colored()}")
                 
-                # Показываем базовые характеристики для оружия
                 if isinstance(item, MeleeWeapon):
                     min_dmg, max_dmg = item.get_damage_range()
                     lines.append(f"   Урон: {min_dmg}-{max_dmg}")
                     lines.append(f"   Скорость: {item.attack_speed:.2f}")
-                    lines.append(f"   Крит: {item.crit_chance + item.stats.get('crit_chance', 0)}%")
                 
-                # Показываем аффиксы
                 if hasattr(item, 'affixes') and item.affixes:
                     for affix_type, affix_data in item.affixes[:2]:
                         value = item.stats.get(affix_data["stat"], 0)
@@ -250,18 +342,6 @@ class InventoryHandler:
                 lines.append("")
             else:
                 lines.append(f"**{slot_name}:** Пусто\n")
-        
-        # Итоговые статы
-        lines.append("📊 **ИТОГОВЫЕ СТАТЫ:**")
-        lines.append(f"❤️ HP: {player.hp}/{player.max_hp}")
-        lines.append(f"💙 Мана: {player.mana}/{player.max_mana}")
-        lines.append(f"⚔️ Урон: {player.get_total_damage()}")
-        lines.append(f"🛡️ Защита: {player.defense}")
-        lines.append(f"🎯 Точность: {player.accuracy}%")
-        lines.append(f"🔥 Крит: {player.crit_chance}% x{player.crit_multiplier}%")
-        lines.append(f"💪 Сила: {player.strength}")
-        lines.append(f"🏹 Ловкость: {player.dexterity}")
-        lines.append(f"📚 Интеллект: {player.intelligence}")
         
         return "\n".join(lines)
     
@@ -322,10 +402,36 @@ class InventoryHandler:
             text += req_text
         
         # Клавиатура действий
-        keyboard = get_item_action_keyboard(item, item_index + 1, player)
+        keyboard = self._get_item_action_keyboard(item, item_index + 1, player)
         
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
         await callback.answer()
+    
+    def _get_item_action_keyboard(self, item, item_index, player):
+        """Создает клавиатуру для действий с предметом"""
+        buttons = []
+        
+        if item.item_type != ItemType.FLASK:
+            # Проверяем, можно ли экипировать
+            can_equip = True
+            if isinstance(item, MeleeWeapon) and hasattr(item, 'requirements'):
+                if "str" in item.requirements and player.strength < item.requirements["str"]:
+                    can_equip = False
+                if "dex" in item.requirements and player.dexterity < item.requirements["dex"]:
+                    can_equip = False
+                if "int" in item.requirements and player.intelligence < item.requirements["int"]:
+                    can_equip = False
+            
+            if can_equip and not self._is_equipped(player, item):
+                buttons.append([InlineKeyboardButton(text="⚔️ Экипировать", callback_data=f"equip_{item_index}")])
+        else:
+            buttons.append([InlineKeyboardButton(text="🧪 Использовать", callback_data=f"use_flask_{item_index}")])
+        
+        buttons.append([InlineKeyboardButton(text="💰 Продать", callback_data=f"sell_{item_index}")])
+        buttons.append([InlineKeyboardButton(text="🗑️ Выбросить", callback_data=f"drop_{item_index}")])
+        buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="show_inventory")])
+        
+        return InlineKeyboardMarkup(inline_keyboard=buttons)
     
     async def equip_item(self, callback: types.CallbackQuery, state: FSMContext):
         """Экипирует предмет"""
@@ -428,8 +534,8 @@ class InventoryHandler:
             await callback.answer(f"❌ {message}")
             return
         
-        # Возвращаемся к экипировке
-        await self.show_equipment(callback, state)
+        # Возвращаемся к инвентарю
+        await self.show_inventory(callback, state)
     
     async def use_flask(self, callback: types.CallbackQuery, state: FSMContext):
         """Использует фласку (вне боя)"""
@@ -448,7 +554,7 @@ class InventoryHandler:
         parts = callback.data.split('_')
         if len(parts) >= 3:
             try:
-                flask_index = int(parts[2])
+                flask_index = int(parts[2]) - 1
             except ValueError:
                 flask_index = player.active_flask
         else:
