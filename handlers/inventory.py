@@ -102,6 +102,7 @@ class InventoryHandler:
         gloves = player.equipped.get(ItemType.GLOVES)
         belt = player.equipped.get(ItemType.BELT)
         boots = player.equipped.get(ItemType.BOOTS)
+        amulet = player.equipped.get(ItemType.AMULET)
         
         # Находим второе кольцо (если есть)
         rings = [item for item in player.inventory if item.item_type == ItemType.RING and item != ring1]
@@ -109,21 +110,23 @@ class InventoryHandler:
             ring2 = rings[0]
         
         # Форматируем текст для каждого слота
-        weapon_text = "⚔️ Пусто" if not weapon else weapon.get_name_colored()
-        shield_text = "🛡️ Пусто"  # Заглушка для щита
-        helmet_text = "⛑️ Пусто" if not helmet else helmet.get_name_colored()
-        ring1_text = "💍 Пусто" if not ring1 else ring1.get_name_colored()
-        armor_text = "🛡️ Пусто" if not armor else armor.get_name_colored()
-        ring2_text = "💍 Пусто" if not ring2 else ring2.get_name_colored()
-        gloves_text = "🧤 Пусто" if not gloves else gloves.get_name_colored()
-        belt_text = "🔗 Пусто" if not belt else belt.get_name_colored()
-        boots_text = "👢 Пусто" if not boots else boots.get_name_colored()
+        weapon_text = "Пусто" if not weapon else weapon.get_name_colored()
+        shield_text = "Пусто"  # Заглушка для щита
+        helmet_text = "Пусто" if not helmet else helmet.get_name_colored()
+        amulet_text = "Пусто" if not amulet else amulet.get_name_colored()
+        ring1_text = "Пусто" if not ring1 else ring1.get_name_colored()
+        armor_text = "Пусто" if not armor else armor.get_name_colored()
+        ring2_text = "Пусто" if not ring2 else ring2.get_name_colored()
+        gloves_text = "Пусто" if not gloves else gloves.get_name_colored()
+        belt_text = "Пусто" if not belt else belt.get_name_colored()
+        boots_text = "Пусто" if not boots else boots.get_name_colored()
         empty_text = "⬜"
         
         # Обрезаем длинные названия (максимум 12 символов)
         weapon_text = weapon_text[:12] + "..." if len(weapon_text) > 12 else weapon_text
         shield_text = shield_text[:12] + "..." if len(shield_text) > 12 else shield_text
         helmet_text = helmet_text[:12] + "..." if len(helmet_text) > 12 else helmet_text
+        amulet_text = amulet_text[:12] + "..." if len(amulet_text) > 12 else amulet_text
         ring1_text = ring1_text[:10] + "..." if len(ring1_text) > 10 else ring1_text
         armor_text = armor_text[:12] + "..." if len(armor_text) > 12 else armor_text
         ring2_text = ring2_text[:10] + "..." if len(ring2_text) > 10 else ring2_text
@@ -138,8 +141,8 @@ class InventoryHandler:
         lines.append(f"    {weapon_text}         {empty_text}         {shield_text}    ")
         lines.append("")
         
-        # Строка 2: пустая кнопка, Шлем, пустая кнопка
-        lines.append(f"    {empty_text}           {helmet_text}           {empty_text}    ")
+        # Строка 2: Амулет, Шлем, пустая кнопка
+        lines.append(f"    {amulet_text}        {helmet_text}        {empty_text}    ")
         lines.append("")
         
         # Строка 3: Кольцо, Нагрудник, Кольцо
@@ -152,6 +155,7 @@ class InventoryHandler:
         
         # Строка 5: три пустых кнопки (для будущих слотов)
         lines.append(f"    {empty_text}           {empty_text}           {empty_text}    ")
+        lines.append("")
         lines.append("")
         
         # Инвентарь с лутом (максимум 20 слотов)
@@ -216,28 +220,32 @@ class InventoryHandler:
             equip_row.append(InlineKeyboardButton(text="⚔️ Снять оружие", callback_data="unequip_weapon"))
         if player.equipped[ItemType.HELMET]:
             equip_row.append(InlineKeyboardButton(text="⛑️ Снять шлем", callback_data="unequip_helmet"))
-        if player.equipped[ItemType.ARMOR]:
-            equip_row.append(InlineKeyboardButton(text="🛡️ Снять броню", callback_data="unequip_armor"))
         if equip_row:
             buttons.append(equip_row)
         
         equip_row2 = []
+        if player.equipped[ItemType.ARMOR]:
+            equip_row2.append(InlineKeyboardButton(text="🛡️ Снять броню", callback_data="unequip_armor"))
         if player.equipped[ItemType.GLOVES]:
             equip_row2.append(InlineKeyboardButton(text="🧤 Снять перчатки", callback_data="unequip_gloves"))
-        if player.equipped[ItemType.BELT]:
-            equip_row2.append(InlineKeyboardButton(text="🔗 Снять пояс", callback_data="unequip_belt"))
-        if player.equipped[ItemType.BOOTS]:
-            equip_row2.append(InlineKeyboardButton(text="👢 Снять сапоги", callback_data="unequip_boots"))
         if equip_row2:
             buttons.append(equip_row2)
         
         equip_row3 = []
-        if player.equipped[ItemType.RING]:
-            equip_row3.append(InlineKeyboardButton(text="💍 Снять кольцо", callback_data="unequip_ring"))
-        if player.equipped[ItemType.AMULET]:
-            equip_row3.append(InlineKeyboardButton(text="📿 Снять амулет", callback_data="unequip_amulet"))
+        if player.equipped[ItemType.BELT]:
+            equip_row3.append(InlineKeyboardButton(text="🔗 Снять пояс", callback_data="unequip_belt"))
+        if player.equipped[ItemType.BOOTS]:
+            equip_row3.append(InlineKeyboardButton(text="👢 Снять сапоги", callback_data="unequip_boots"))
         if equip_row3:
             buttons.append(equip_row3)
+        
+        equip_row4 = []
+        if player.equipped[ItemType.RING]:
+            equip_row4.append(InlineKeyboardButton(text="💍 Снять кольцо", callback_data="unequip_ring"))
+        if player.equipped[ItemType.AMULET]:
+            equip_row4.append(InlineKeyboardButton(text="📿 Снять амулет", callback_data="unequip_amulet"))
+        if equip_row4:
+            buttons.append(equip_row4)
         
         # Кнопки управления
         control_row = []
