@@ -83,21 +83,28 @@ class Player:
         """Выдает стартовые предметы после первого посещения убежища"""
         from models.item import Flask
         
-        # Даем фласку здоровья
-        health_flask = Flask("small_life")
-        # Меняем эмодзи для фласки здоровья
-        health_flask.emoji = "🟢💊🧪"
-        self.flasks.append(health_flask)
+        items_given = []
         
-        # Даем фласку маны
-        mana_flask = Flask("small_mana")
-        mana_flask.emoji = "🟢Ⓜ️🧪"
-        self.flasks.append(mana_flask)
+        # Даем фласку здоровья, если еще нет
+        if len([f for f in self.flasks if "💊" in f.emoji]) == 0:
+            health_flask = Flask("small_life")
+            health_flask.emoji = "🟢💊🧪"
+            self.flasks.append(health_flask)
+            items_given.append("🟢💊🧪 Фласка здоровья")
+        
+        # Даем фласку маны, если еще нет
+        if len([f for f in self.flasks if "Ⓜ️" in f.emoji]) == 0:
+            mana_flask = Flask("small_mana")
+            mana_flask.emoji = "🟢Ⓜ️🧪"
+            self.flasks.append(mana_flask)
+            items_given.append("🟢Ⓜ️🧪 Фласка маны")
         
         # Даем свиток портала
-        self.has_portal = True
+        if not self.has_portal:
+            self.has_portal = True
+            items_given.append("🌀 Свиток портала")
         
-        return ["🟢💊🧪 Фласка здоровья", "🟢Ⓜ️🧪 Фласка маны", "🌀 Свиток портала"]
+        return items_given
     
     # ============= МЕТОДЫ ИНВЕНТАРЯ =============
     
@@ -187,13 +194,17 @@ class Player:
             return 0, "Нет фласок"
         
         flask = self.flasks[flask_index]
-        heal = flask.use()
+        value = flask.use()
         
-        if heal > 0:
-            self.heal(heal)
-            if flask.current_uses == 0:
-                self._switch_to_next_flask()
-            return heal, f"🧪 Использована {flask.name}"
+        if value > 0:
+            if "💊" in flask.emoji:  # Фласка здоровья
+                self.heal(value)
+                return value, f"🧪 Использована фласка здоровья: +{value} HP"
+            elif "Ⓜ️" in flask.emoji:  # Фласка маны
+                self.restore_mana(value)
+                return value, f"💙 Использована фласка маны: +{value} MP"
+            else:
+                return value, f"✨ Использована {flask.name}"
         else:
             if self._switch_to_next_flask():
                 return 0, "Фласка пуста, переключено на другую"
@@ -215,7 +226,8 @@ class Player:
         """Переключить активную фласку вручную"""
         if len(self.flasks) > 1:
             self.active_flask = (self.active_flask + 1) % len(self.flasks)
-            return True, f"Активная фласка: {self.flasks[self.active_flask].name}"
+            flask_type = "🟢💊" if "💊" in self.flasks[self.active_flask].emoji else "🟢Ⓜ️" if "Ⓜ️" in self.flasks[self.active_flask].emoji else "⚪️✨"
+            return True, f"Активная фласка: {flask_type}"
         return False, "Только одна фласка"
     
     # ============= МЕТОДЫ ЭКИПИРОВКИ =============
@@ -411,7 +423,8 @@ class Player:
         flask_info = []
         for i, flask in enumerate(self.flasks):
             marker = "👉" if i == self.active_flask else "  "
-            flask_info.append(f"{marker} {flask.get_status()}")
+            flask_type = "🟢💊" if "💊" in flask.emoji else "🟢Ⓜ️" if "Ⓜ️" in flask.emoji else "⚪️✨" if "✨" in flask.emoji else "🔵🛡️"
+            flask_info.append(f"{marker} {flask_type} [{flask.current_uses}/{flask.flask_data['uses']}]")
         flask_text = "\n".join(flask_info) if flask_info else "Нет фласок"
         
         current_location = AreaRegistry.get_location_name(self.current_location)
