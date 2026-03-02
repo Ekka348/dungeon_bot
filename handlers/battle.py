@@ -44,18 +44,13 @@ class BattleUI:
         lines.append(f"{enemy_name} ❤️ {enemy_hp_bar} {enemy.hp}/{enemy.max_hp}")
         lines.append("")
         
-        # Навигационные иконки
-        nav_line = (
-            f"[🎒](tg://resolve?domain={bot_username}&start=battle_inventory) "
-            f"[👤](tg://resolve?domain={bot_username}&start=battle_stats) "
-            f"[🌀](tg://resolve?domain={bot_username}&start=return_haven)"
-        )
-        lines.append(nav_line)
+        # Навигационные иконки - используем простой текст без Markdown для них
+        lines.append("🎒 👤 🌀")
         lines.append("_" * 65)
         lines.append("")
         
-        # Панель с характеристиками и действиями
-        lines.extend(cls._create_action_panel(player, bot_username))
+        # Панель с характеристиками и действиями - используем обычный текст без Markdown
+        lines.extend(cls._create_action_panel(player))
         
         return "\n".join(lines)
     
@@ -72,17 +67,16 @@ class BattleUI:
         return "█" * filled + "░" * (length - filled)
     
     @classmethod
-    def _create_action_panel(cls, player, bot_username):
-        """Создает панель с характеристиками и действиями"""
+    def _create_action_panel(cls, player):
+        """Создает панель с характеристиками и действиями (без Markdown)"""
         lines = []
         
         # Полоски здоровья и маны
         player_hp_bar = cls._create_hp_bar(player.hp, player.max_hp, 6)
         player_mana_bar = cls._create_bar(player.mana, player.max_mana, 6)
         
-        # Характеристики игрока
-        attack_link = f"tg://resolve?domain={bot_username}&start=battle_attack"
-        lines.append(f"❤️ {player_hp_bar} {player.hp}/{player.max_hp}    Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}    [⚔️]({attack_link})")
+        # Характеристики игрока - без ссылок
+        lines.append(f"❤️ {player_hp_bar} {player.hp}/{player.max_hp}    Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}    ⚔️")
         lines.append("")
         
         # Находим фласки по типам
@@ -91,13 +85,12 @@ class BattleUI:
         buff_flasks = [f for f in player.flasks if "✨" in f.emoji]
         defense_flasks = [f for f in player.flasks if "🛡️" in f.emoji]
         
-        # Первая строка фласок
+        # Первая строка фласок - без ссылок
         health_text = ""
         if len(health_flasks) > 0:
             flask = health_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_health_0"
-            health_text = f"[🟢💊🧪]({flask_link}) [{flask_bar}]"
+            health_text = f"🟢💊🧪 [{flask_bar}]"
         else:
             health_text = "🟢💊🧪 [   ]"
         
@@ -105,21 +98,18 @@ class BattleUI:
         if len(mana_flasks) > 0:
             flask = mana_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_mana_0"
-            mana_text = f"[🟢Ⓜ️🧪]({flask_link}) [{flask_bar}]"
+            mana_text = f"🟢Ⓜ️🧪 [{flask_bar}]"
         else:
             mana_text = "🟢Ⓜ️🧪 [   ]"
         
-        heavy_link = f"tg://resolve?domain={bot_username}&start=battle_heavy"
-        lines.append(f"{health_text}    {mana_text}    [💪]({heavy_link})")
+        lines.append(f"{health_text}    {mana_text}    💪")
         
-        # Вторая строка фласок
+        # Вторая строка фласок - без ссылок
         health_text2 = ""
         if len(health_flasks) > 1:
             flask = health_flasks[1]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_health_1"
-            health_text2 = f"[🟢💊🧪]({flask_link}) [{flask_bar}]"
+            health_text2 = f"🟢💊🧪 [{flask_bar}]"
         else:
             health_text2 = "🟢💊🧪 [   ]"
         
@@ -127,21 +117,18 @@ class BattleUI:
         if len(mana_flasks) > 1:
             flask = mana_flasks[1]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_mana_1"
-            mana_text2 = f"[🟢Ⓜ️🧪]({flask_link}) [{flask_bar}]"
+            mana_text2 = f"🟢Ⓜ️🧪 [{flask_bar}]"
         else:
             mana_text2 = "🟢Ⓜ️🧪 [   ]"
         
-        fast_link = f"tg://resolve?domain={bot_username}&start=battle_fast"
-        lines.append(f"{health_text2}    {mana_text2}    [⚡️]({fast_link})")
+        lines.append(f"{health_text2}    {mana_text2}    ⚡️")
         
-        # Третья строка - бафф и защита
+        # Третья строка - бафф и защита - без ссылок
         buff_text = ""
         if len(buff_flasks) > 0:
             flask = buff_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_buff_0"
-            buff_text = f"[⚪️✨🧪]({flask_link}) [{flask_bar}]"
+            buff_text = f"⚪️✨🧪 [{flask_bar}]"
         else:
             buff_text = "⚪️✨🧪 [   ]"
         
@@ -149,8 +136,7 @@ class BattleUI:
         if len(defense_flasks) > 0:
             flask = defense_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_defense_0"
-            defense_text = f"[🔵🛡️🧪]({flask_link}) [{flask_bar}]"
+            defense_text = f"🔵🛡️🧪 [{flask_bar}]"
         else:
             defense_text = "🔵🛡️🧪 [   ]"
         
@@ -190,6 +176,14 @@ class BattleHandler:
         @self.dp.message(lambda message: message.text and message.text.startswith('/start battle_back'))
         async def battle_back_command(message: types.Message, state: FSMContext):
             await self.show_battle(message, state)
+        
+        @self.dp.message(lambda message: message.text and message.text.startswith('/start battle_stats'))
+        async def battle_stats_command(message: types.Message, state: FSMContext):
+            await self.show_player_stats(message, state)
+        
+        @self.dp.message(lambda message: message.text and message.text.startswith('/start battle_inventory'))
+        async def battle_inventory_command(message: types.Message, state: FSMContext):
+            await self.show_inventory(message, state)
         
         @self.dp.callback_query(lambda c: c.data == "start_battle")
         async def start_battle(callback: types.CallbackQuery, state: FSMContext):
@@ -425,20 +419,13 @@ class BattleHandler:
             await message.answer("❌ Ошибка состояния боя")
             return
         
-        # Создаем интерфейс с гиперссылками
+        # Создаем интерфейс с гиперссылками (без Markdown в самом интерфейсе)
         ui = BattleUI.create_battle_screen(
             player, enemy, combat, battle_log, turn, self.bot_username
         )
         
-        try:
-            await message.edit_text(ui, parse_mode="Markdown")
-        except Exception as e:
-            # Если ошибка форматирования, пробуем без Markdown
-            try:
-                clean_ui = ui.replace("*", "").replace("[", "").replace("]", "").replace("(", "").replace(")", "")
-                await message.edit_text(clean_ui)
-            except:
-                await message.answer(ui, parse_mode="Markdown")
+        # Отправляем без Markdown
+        await message.edit_text(ui)
     
     async def use_flask(self, message: types.Message, state: FSMContext, flask_index: int, flask_type: str):
         """Использование фласки"""
