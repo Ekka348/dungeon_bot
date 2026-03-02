@@ -21,24 +21,13 @@ from systems.progression import ProgressionSystem
 class BattleUI:
     """Класс для формирования интерфейса боя с гиперссылками"""
     
-    # Символы для рамок
-    TOP_LEFT = "┌"
-    TOP_RIGHT = "┐"
-    BOTTOM_LEFT = "└"
-    BOTTOM_RIGHT = "┘"
-    HORIZONTAL = "─"
-    VERTICAL = "│"
-    CROSS = "┼"
-    TOP_MID = "┬"
-    BOTTOM_MID = "┴"
-    
     @classmethod
     def create_battle_screen(cls, player, enemy, combat, battle_log, turn, bot_username):
         """Создает полный экран боя с гиперссылками"""
         
         lines = []
         
-        # Первая строка - сообщение из лога или приветствие
+        # Первая строка - сообщение из лога
         first_message = "⚔️ Бой начался!"
         if battle_log and len(battle_log) > 0:
             last_entry = list(battle_log)[-1]
@@ -55,16 +44,20 @@ class BattleUI:
         lines.append(f"{enemy_name} ❤️ {enemy_hp_bar} {enemy.hp}/{enemy.max_hp}")
         lines.append("")
         
-        # Нижняя панель с интерфейсом
-        lines.append(cls._create_bottom_panel(player, bot_username))
+        # Навигационные иконки
+        nav_line = (
+            f"[🎒](tg://resolve?domain={bot_username}&start=battle_inventory)"
+            f"[👤](tg://resolve?domain={bot_username}&start=battle_stats)"
+            f"[🌀](tg://resolve?domain={bot_username}&start=return_haven)"
+        )
+        lines.append(nav_line)
+        lines.append("_" * 65)
+        lines.append("")
+        
+        # Панель с характеристиками и действиями
+        lines.extend(cls._create_action_panel(player, bot_username))
         
         return "\n".join(lines)
-    
-    @classmethod
-    def _clean_text(cls, text):
-        """Очищает текст от Markdown для подсчета длины"""
-        import re
-        return re.sub(r'[*_`\[\]]', '', text)
     
     @classmethod
     def _create_hp_bar(cls, current, maximum, length):
@@ -79,124 +72,83 @@ class BattleUI:
         return "█" * filled + "░" * (length - filled)
     
     @classmethod
-    def _create_bottom_panel(cls, player, bot_username):
-        """Создает нижнюю панель с интерфейсом"""
+    def _create_action_panel(cls, player, bot_username):
+        """Создает панель с характеристиками и действиями"""
+        lines = []
         
-        # Верхняя линия с иконками навигации
-        nav_line = f"[🎒](tg://resolve?domain={bot_username}&start=battle_inventory)[👤](tg://resolve?domain={bot_username}&start=battle_stats)[🌀](tg://resolve?domain={bot_username}&start=return_haven)"
-        
-        lines = [nav_line]
-        lines.append("_" * 65)
-        
-        # Первая строка панели (пустая)
-        lines.append(f"|{' ' * 50}|{' ' * 22}|{' ' * 10}|")
-        
-        # Вторая строка - здоровье и мана игрока, и обычная атака
+        # Полоски здоровья и маны
         player_hp_bar = cls._create_hp_bar(player.hp, player.max_hp, 6)
         player_mana_bar = cls._create_bar(player.mana, player.max_mana, 6)
         
-        second_line = (
-            f"|  ❤️ {player_hp_bar} {player.hp}/{player.max_hp}    "
-            f"|      Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}     "
-            f"|         [⚔️](tg://resolve?domain={bot_username}&start=battle_attack)       |"
-        )
-        lines.append(second_line)
+        # Характеристики игрока
+        lines.append(f"❤️ {player_hp_bar} {player.hp}/{player.max_hp}    Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}    [⚔️](tg://resolve?domain={bot_username}&start=battle_attack)")
+        lines.append("")
         
-        # Третья строка (пустая)
-        lines.append(f"|{' ' * 50}|{' ' * 22}|{' ' * 10}|")
-        
-        # Четвертая строка - фласки
+        # Фласки
         # Находим фласки по типам
         health_flasks = [f for f in player.flasks if "💊" in f.emoji or "🧪" in f.emoji]
         mana_flasks = [f for f in player.flasks if "Ⓜ️" in f.emoji]
         buff_flasks = [f for f in player.flasks if "✨" in f.emoji]
+        defense_flasks = [f for f in player.flasks if "🛡️" in f.emoji]
         
-        # Формируем строку фласок
-        health_flask_text = ""
+        # Первая строка фласок
+        health_text = ""
         if len(health_flasks) > 0:
             flask = health_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            health_flask_text = f"[🟢💊🧪](tg://resolve?domain={bot_username}&start=battle_flask_health_0) [{flask_bar}]"
+            health_text = f"[🟢💊🧪](tg://resolve?domain={bot_username}&start=battle_flask_health_0) [{flask_bar}]"
         else:
-            health_flask_text = "🟢💊🧪 [   ]"
+            health_text = "🟢💊🧪 [   ]"
         
-        mana_flask_text = ""
+        mana_text = ""
         if len(mana_flasks) > 0:
             flask = mana_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            mana_flask_text = f"[🟢Ⓜ️🧪](tg://resolve?domain={bot_username}&start=battle_flask_mana_0) [{flask_bar}]"
+            mana_text = f"[🟢Ⓜ️🧪](tg://resolve?domain={bot_username}&start=battle_flask_mana_0) [{flask_bar}]"
         else:
-            mana_flask_text = "🟢Ⓜ️🧪 [   ]"
+            mana_text = "🟢Ⓜ️🧪 [   ]"
         
-        buff_flask_text = ""
-        if len(buff_flasks) > 0:
-            flask = buff_flasks[0]
-            flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            buff_flask_text = f"[⚪️✨🧪](tg://resolve?domain={bot_username}&start=battle_flask_buff_0) [{flask_bar}]"
-        else:
-            buff_flask_text = "⚪️✨🧪 [   ]"
+        lines.append(f"{health_text}    {mana_text}    [💪](tg://resolve?domain={bot_username}&start=battle_heavy)")
         
-        fourth_line = (
-            f"|      {health_flask_text}         "
-            f"|         {mana_flask_text}             "
-            f"|        [💪](tg://resolve?domain={bot_username}&start=battle_heavy)       |"
-        )
-        lines.append(fourth_line)
-        
-        # Пятая строка - вторая фласка здоровья (если есть) и вторая фласка маны
-        health_flask2_text = ""
+        # Вторая строка фласок
+        health_text2 = ""
         if len(health_flasks) > 1:
             flask = health_flasks[1]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            health_flask2_text = f"[🟢💊🧪](tg://resolve?domain={bot_username}&start=battle_flask_health_1) [{flask_bar}]"
+            health_text2 = f"[🟢💊🧪](tg://resolve?domain={bot_username}&start=battle_flask_health_1) [{flask_bar}]"
         else:
-            health_flask2_text = "🟢💊🧪 [   ]"
+            health_text2 = "🟢💊🧪 [   ]"
         
-        mana_flask2_text = ""
+        mana_text2 = ""
         if len(mana_flasks) > 1:
             flask = mana_flasks[1]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            mana_flask2_text = f"[🟢Ⓜ️🧪](tg://resolve?domain={bot_username}&start=battle_flask_mana_1) [{flask_bar}]"
+            mana_text2 = f"[🟢Ⓜ️🧪](tg://resolve?domain={bot_username}&start=battle_flask_mana_1) [{flask_bar}]"
         else:
-            mana_flask2_text = "🟢Ⓜ️🧪 [   ]"
+            mana_text2 = "🟢Ⓜ️🧪 [   ]"
         
-        fifth_line = (
-            f"|      {health_flask2_text}         "
-            f"|         {mana_flask2_text}             "
-            f"|{' ' * 10}|"
-        )
-        lines.append(fifth_line)
+        lines.append(f"{health_text2}    {mana_text2}    [⚡️](tg://resolve?domain={bot_username}&start=battle_fast)")
         
-        # Шестая строка - третья фласка (обычно бафф)
-        buff_flask2_text = ""
-        if len(buff_flasks) > 1:
-            flask = buff_flasks[1]
+        # Третья строка - бафф и защита
+        buff_text = ""
+        if len(buff_flasks) > 0:
+            flask = buff_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            buff_flask2_text = f"[⚪️✨🧪](tg://resolve?domain={bot_username}&start=battle_flask_buff_1) [{flask_bar}]"
+            buff_text = f"[⚪️✨🧪](tg://resolve?domain={bot_username}&start=battle_flask_buff_0) [{flask_bar}]"
         else:
-            buff_flask2_text = "⚪️✨🧪 [   ]"
+            buff_text = "⚪️✨🧪 [   ]"
         
-        # Защитная фласка (третья в ряду)
-        defense_flask_text = ""
-        defense_flasks = [f for f in player.flasks if "🛡️" in f.emoji]
+        defense_text = ""
         if len(defense_flasks) > 0:
             flask = defense_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            defense_flask_text = f"[🔵🛡️🧪](tg://resolve?domain={bot_username}&start=battle_flask_defense_0) [{flask_bar}]"
+            defense_text = f"[🔵🛡️🧪](tg://resolve?domain={bot_username}&start=battle_flask_defense_0) [{flask_bar}]"
         else:
-            defense_flask_text = "🔵🛡️🧪 [   ]"
+            defense_text = "🔵🛡️🧪 [   ]"
         
-        sixth_line = (
-            f"|     {defense_flask_text}         "
-            f"|                                                      "
-            f"|        [⚡️](tg://resolve?domain={bot_username}&start=battle_fast)       |"
-        )
-        lines.append(sixth_line)
+        lines.append(f"{buff_text}    {defense_text}")
         
-        # Нижняя граница
-        lines.append("|" + "_" * 50 + "|" + "_" * 22 + "|" + "_" * 10 + "|")
-        
-        return "\n".join(lines)
+        return lines
 
 
 # ============= ОСНОВНОЙ ХЕНДЛЕР БОЯ =============
@@ -218,6 +170,14 @@ class BattleHandler:
         @self.dp.message(lambda message: message.text and message.text.startswith('/start battle_'))
         async def battle_command(message: types.Message, state: FSMContext):
             await self.process_battle_command(message, state)
+        
+        @self.dp.message(lambda message: message.text and message.text.startswith('/start next_step'))
+        async def next_step_command(message: types.Message, state: FSMContext):
+            await self.handlers.dungeon.next_step_command(message, state)
+        
+        @self.dp.message(lambda message: message.text and message.text.startswith('/start return_haven'))
+        async def return_haven_command(message: types.Message, state: FSMContext):
+            await self.return_to_haven(message, state)
         
         @self.dp.callback_query(lambda c: c.data == "start_battle")
         async def start_battle(callback: types.CallbackQuery, state: FSMContext):
