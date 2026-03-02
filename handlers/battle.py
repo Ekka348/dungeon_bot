@@ -247,7 +247,12 @@ class BattleHandler:
             return
         
         text = self._format_inventory(player)
-        await message.edit_text(text, parse_mode="Markdown")
+        
+        # Пытаемся отредактировать сообщение, если не получается - отправляем новое
+        try:
+            await message.edit_text(text, parse_mode="Markdown")
+        except:
+            await message.answer(text, parse_mode="Markdown")
     
     def _format_inventory(self, player):
         """Форматирует инвентарь для отображения"""
@@ -403,10 +408,11 @@ class BattleHandler:
         except:
             pass
         
-        await self.show_battle(callback.message, state)
+        # Отправляем новое сообщение с боем
+        await self.show_battle(callback.message, state, is_new=True)
         await callback.answer()
     
-    async def show_battle(self, message: types.Message, state: FSMContext):
+    async def show_battle(self, message: types.Message, state: FSMContext, is_new: bool = False):
         """Показывает экран боя"""
         data = await state.get_data()
         player = data.get('player')
@@ -419,13 +425,24 @@ class BattleHandler:
             await message.answer("❌ Ошибка состояния боя")
             return
         
-        # Создаем интерфейс с гиперссылками (без Markdown)
+        # Создаем интерфейс
         ui = BattleUI.create_battle_screen(
             player, enemy, combat, battle_log, turn, self.bot_username
         )
         
-        # Отправляем без Markdown (убираем parse_mode)
-        await message.edit_text(ui)
+        try:
+            if is_new:
+                # Отправляем новое сообщение
+                await message.answer(ui)
+            else:
+                # Пытаемся отредактировать существующее
+                await message.edit_text(ui)
+        except Exception as e:
+            # Если не удалось отредактировать, отправляем новое
+            try:
+                await message.answer(ui)
+            except:
+                pass
     
     async def use_flask(self, message: types.Message, state: FSMContext, flask_index: int, flask_type: str):
         """Использование фласки"""
@@ -475,11 +492,10 @@ class BattleHandler:
                 result_msg = "❌ Фласка пуста!"
         
         elif flask_type == "defense":
-            # Фласка защиты
             result_msg = "🛡️ Использована фласка защиты"
             flask.use()
         
-        else:  # buff
+        else:
             result_msg = "✨ Использована фласка баффа"
             flask.use()
         
@@ -607,7 +623,10 @@ class BattleHandler:
             f"[◀ Назад в бой]({back_link})"
         )
         
-        await message.edit_text(text, parse_mode="Markdown")
+        try:
+            await message.edit_text(text, parse_mode="Markdown")
+        except:
+            await message.answer(text, parse_mode="Markdown")
     
     async def handle_victory(self, message: types.Message, state: FSMContext):
         """Обрабатывает победу"""
