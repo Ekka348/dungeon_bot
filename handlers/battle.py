@@ -90,74 +90,86 @@ class BattleKeyboard:
         buff_flasks = [f for f in player.flasks if "✨" in f.emoji]
         defense_flasks = [f for f in player.flasks if "🛡️" in f.emoji]
         
+        # Проверяем, находится ли игрок в убежище или уже получил базовые предметы
+        has_portal = player.current_location == 2 or player.has_portal
+        
         # Строка с фласками здоровья и маны
         health_text1 = "⬜ [   ]"  # Пустая фласка по умолчанию
+        health_callback1 = "ignore"
         if len(health_flasks) > 0:
             flask = health_flasks[0]
             flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
             health_text1 = f"🟢💊🧪 [{flask_bar}]"
+            health_callback1 = f"battle_flask_health_0"
         
         mana_text1 = "⬜ [   ]"  # Пустая фласка по умолчанию
+        mana_callback1 = "ignore"
         if len(mana_flasks) > 0:
             flask = mana_flasks[0]
             flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
             mana_text1 = f"🟢Ⓜ️🧪 [{flask_bar}]"
+            mana_callback1 = f"battle_flask_mana_0"
         
         buttons.append([
-            InlineKeyboardButton(text=health_text1, 
-                               callback_data=f"battle_flask_health_0" if len(health_flasks) > 0 else "ignore"),
-            InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),  # ИЗМЕНЕНО ЗДЕСЬ
-            InlineKeyboardButton(text=mana_text1, 
-                               callback_data=f"battle_flask_mana_0" if len(mana_flasks) > 0 else "ignore")
+            InlineKeyboardButton(text=health_text1, callback_data=health_callback1),
+            InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
+            InlineKeyboardButton(text=mana_text1, callback_data=mana_callback1)
         ])
         
         # Вторая строка с фласками
         health_text2 = "⬜ [   ]"  # Пустая фласка по умолчанию
+        health_callback2 = "ignore"
         if len(health_flasks) > 1:
             flask = health_flasks[1]
             flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
             health_text2 = f"🟢💊🧪 [{flask_bar}]"
+            health_callback2 = f"battle_flask_health_1"
         
         mana_text2 = "⬜ [   ]"  # Пустая фласка по умолчанию
+        mana_callback2 = "ignore"
         if len(mana_flasks) > 1:
             flask = mana_flasks[1]
             flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
             mana_text2 = f"🟢Ⓜ️🧪 [{flask_bar}]"
+            mana_callback2 = f"battle_flask_mana_1"
         
         buttons.append([
-            InlineKeyboardButton(text=health_text2, 
-                               callback_data=f"battle_flask_health_1" if len(health_flasks) > 1 else "ignore"),
+            InlineKeyboardButton(text=health_text2, callback_data=health_callback2),
             InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
-            InlineKeyboardButton(text=mana_text2, 
-                               callback_data=f"battle_flask_mana_1" if len(mana_flasks) > 1 else "ignore")
+            InlineKeyboardButton(text=mana_text2, callback_data=mana_callback2)
         ])
         
         # Третья строка - бафф, защита и умение
         buff_text = "⬜ [   ]"  # Пустая фласка по умолчанию
+        buff_callback = "ignore"
         if len(buff_flasks) > 0:
             flask = buff_flasks[0]
             flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
             buff_text = f"⚪️✨🧪 [{flask_bar}]"
+            buff_callback = f"battle_flask_buff_0"
         
         defense_text = "⬜ [   ]"  # Пустая фласка по умолчанию
+        defense_callback = "ignore"
         if len(defense_flasks) > 0:
             flask = defense_flasks[0]
             flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
             defense_text = f"🔵🛡️🧪 [{flask_bar}]"
+            defense_callback = f"battle_flask_defense_0"
         
         buttons.append([
-            InlineKeyboardButton(text=buff_text, 
-                               callback_data=f"battle_flask_buff_0" if len(buff_flasks) > 0 else "ignore"),
+            InlineKeyboardButton(text=buff_text, callback_data=buff_callback),
             InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast"),
-            InlineKeyboardButton(text=defense_text, 
-                               callback_data=f"battle_flask_defense_0" if len(defense_flasks) > 0 else "ignore")
+            InlineKeyboardButton(text=defense_text, callback_data=defense_callback)
         ])
         
         # Четвертая строка - навигация
+        # Кнопка портала доступна только после получения свитка портала
+        portal_button = InlineKeyboardButton(text="🌀 Побег", callback_data="battle_run" if has_portal else "ignore")
+        
         buttons.append([
             InlineKeyboardButton(text="👤 Персонаж", callback_data="battle_stats"),
             InlineKeyboardButton(text="🎒 Инвентарь", callback_data="battle_inventory"),
-            InlineKeyboardButton(text="🌀 Побег", callback_data="battle_run")
+            portal_button
         ])
         
         return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -181,7 +193,7 @@ class BattleHandler:
         
         @self.dp.callback_query(lambda c: c.data == "ignore")
         async def ignore_callback(callback: types.CallbackQuery):
-            await callback.answer()
+            await callback.answer("❌ Недоступно")
         
         @self.dp.callback_query(lambda c: c.data == "battle_attack")
         async def battle_attack(callback: types.CallbackQuery, state: FSMContext):
@@ -455,6 +467,13 @@ class BattleHandler:
             await callback.answer("❌ Ошибка состояния боя")
             return
         
+        # Проверяем, доступен ли побег
+        if action == CombatAction.RUN:
+            has_portal = player.current_location == 2 or player.has_portal
+            if not has_portal:
+                await callback.answer("❌ У тебя нет свитка портала!")
+                return
+        
         # Проверяем ману для действий, кроме обычной атаки и побега
         if action not in [CombatAction.ATTACK, CombatAction.RUN]:
             mana_cost = combat.MANA_COSTS.get(action, 5)
@@ -660,6 +679,12 @@ class BattleHandler:
         
         if not player:
             await message.answer("❌ Ошибка состояния")
+            return
+        
+        # Проверяем, есть ли портал
+        has_portal = player.current_location == 2 or player.has_portal
+        if not has_portal:
+            await message.answer("❌ У тебя нет свитка портала!")
             return
         
         text = (
