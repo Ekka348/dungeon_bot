@@ -57,7 +57,9 @@ class BattleUI:
         # Лог боя (последние 3 сообщения)
         log_messages = cls._get_battle_log(battle_log)
         for msg in log_messages:
-            padding = " " * ((60 - len(cls._clean_text(msg))) // 2)
+            # Центрируем сообщение
+            clean_msg = cls._clean_text(msg)
+            padding = " " * ((60 - len(clean_msg)) // 2)
             lines.append(f"{padding}{msg}")
         lines.append("")
         
@@ -83,15 +85,18 @@ class BattleUI:
             return ["⚔️ Бой начался!"]
         
         messages = []
-        for entry in list(battle_log)[-max_messages:]:
-            if entry.get("result"):
+        log_list = list(battle_log) if hasattr(battle_log, '__iter__') else battle_log
+        
+        for entry in log_list[-max_messages:]:
+            if entry and entry.get("result"):
                 last_msg = entry["result"][-1] if entry["result"] else "⚔️"
                 messages.append(last_msg)
         
+        # Дополняем до 3 сообщений, если нужно
         while len(messages) < max_messages:
             messages.insert(0, "⚔️")
         
-        return messages
+        return messages[-max_messages:]
     
     @classmethod
     def _create_hp_bar(cls, current, maximum, length):
@@ -109,7 +114,7 @@ class BattleUI:
     def _create_bottom_panel(cls, player, bot_username):
         """Создает нижнюю панель с тремя колонками и гиперссылками"""
         
-        # Левая колонка - характеристики игрока
+        # Левая колонка - характеристики игрока (5 строк)
         player_hp_bar = cls._create_hp_bar(player.hp, player.max_hp, 10)
         player_mana_bar = cls._create_bar(player.mana, player.max_mana, 10)
         
@@ -121,8 +126,11 @@ class BattleUI:
             f"{cls.VERTICAL}  🔥 Крит: {player.crit_chance}%  {cls.VERTICAL}"
         ]
         
-        # Центральная колонка - фласки (кликабельные)
+        # Центральная колонка - фласки (максимум 5 строк, но заполняем до 5)
         center_lines = []
+        
+        # Добавляем фласки (до 3 штук)
+        flask_count = 0
         for i, flask in enumerate(player.flasks[:3]):
             flask_type = "🟢💊" if i == 0 else "⚪️✨" if i == 1 else "🔵🛡️"
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 5)
@@ -132,12 +140,13 @@ class BattleUI:
             flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_{i}"
             flask_text = f"{marker} [{flask_type}🧪]({flask_link}) [{flask_bar}]"
             center_lines.append(f"{cls.VERTICAL}  {flask_text}  {cls.VERTICAL}")
+            flask_count += 1
         
-        # Дополняем пустыми слотами
-        while len(center_lines) < 3:
-            center_lines.append(f"{cls.VERTICAL}     ⚪️ Пусто     {cls.VERTICAL}")
+        # Дополняем пустыми строками до 5
+        while len(center_lines) < 5:
+            center_lines.append(f"{cls.VERTICAL}{' ' * 22}{cls.VERTICAL}")
         
-        # Правая колонка - действия (кликабельные)
+        # Правая колонка - действия (5 строк)
         right_lines = [
             f"{cls.VERTICAL}     [💪 Тяжелая](tg://resolve?domain={bot_username}&start=battle_heavy)     {cls.VERTICAL}",
             f"{cls.VERTICAL}     [⚡️ Быстрая](tg://resolve?domain={bot_username}&start=battle_fast)     {cls.VERTICAL}",
@@ -153,6 +162,7 @@ class BattleUI:
         
         panel_lines = [top_line]
         
+        # Теперь все три списка имеют по 5 элементов
         for i in range(5):
             panel_lines.append(f"{left_lines[i]}{center_lines[i]}{right_lines[i]}")
             if i < 4:
@@ -191,6 +201,11 @@ class BattleHandler:
         """Обрабатывает команды из гиперссылок"""
         command = message.text.replace('/start ', '').strip()
         
+        # Получаем username бота, если еще не получили
+        if not self.bot_username:
+            bot_info = await self.bot.me()
+            self.bot_username = bot_info.username
+        
         if command.startswith('battle_heavy'):
             await self.process_action(message, state, CombatAction.HEAVY_ATTACK)
         elif command.startswith('battle_fast'):
@@ -201,12 +216,81 @@ class BattleHandler:
             try:
                 flask_index = int(command.split('_')[2])
                 await self.use_flask(message, state, flask_index)
-            except:
+            except (IndexError, ValueError):
                 await message.answer("❌ Ошибка использования фласки")
         elif command.startswith('battle_stats'):
             await self.show_player_stats(message, state)
         elif command.startswith('battle_inventory'):
-            await self.handlers.inventory.show_inventory(message, state)
+            # Показываем инвентарь через существующий хендлер
+            data = await state.get_data()
+            player = data.get('player')
+            if player:
+                from utils.keyboards import get_inventory_keyboard
+                text = self._format_inventory(player)
+                keyboard = get_inventory_keyboard(player)
+                await message.answer(text, reply_markup=keyboard)
+            else:
+                await message.answer("❌ Игрок не найден")
+    
+    def _format_inventory(self, player):
+        """Форматирует инвентарь для отображения"""
+        if not player.inventory and not player.flasks:
+            return f"🎒 **Инвентарь пуст**\n\n💰 Золото: {player.gold}"
+        
+        lines = ["🎒 **ИНВЕНТАРЬ**\n"]
+        
+        # Группируем предметы по типу
+        weapons = []
+        armor = []
+        other = []
+        flasks = []
+        
+        from models.item import ItemType
+        for item in player.inventory:
+            if item.item_type == ItemType.WEAPON:
+                weapons.append(item)
+            elif item.item_type in [ItemType.HELMET, ItemType.ARMOR, ItemType.GLOVES, 
+                                    ItemType.BOOTS, ItemType.BELT]:
+                armor.append(item)
+            elif item.item_type in [ItemType.RING, ItemType.AMULET]:
+                other.append(item)
+            elif item.item_type == ItemType.FLASK:
+                flasks.append(item)
+        
+        index = 1
+        
+        if weapons:
+            lines.append("**⚔️ ОРУЖИЕ:**")
+            for item in weapons:
+                lines.append(f"{index}. {item.get_name_colored()}")
+                index += 1
+            lines.append("")
+        
+        if armor:
+            lines.append("**🛡️ БРОНЯ:**")
+            for item in armor:
+                lines.append(f"{index}. {item.get_name_colored()}")
+                index += 1
+            lines.append("")
+        
+        if other:
+            lines.append("**💍 АКСЕССУАРЫ:**")
+            for item in other:
+                lines.append(f"{index}. {item.get_name_colored()}")
+                index += 1
+            lines.append("")
+        
+        if flasks:
+            lines.append("**🧪 ФЛАСКИ:**")
+            for item in flasks:
+                lines.append(f"{index}. {item.get_name_colored()} [{item.current_uses}/{item.flask_data['uses']}]")
+                index += 1
+            lines.append("")
+        
+        lines.append(f"💰 Золото: {player.gold}")
+        lines.append(f"\n[◀ Назад в бой](tg://resolve?domain={self.bot_username}&start=battle_back)")
+        
+        return "\n".join(lines)
     
     async def start_battle(self, callback: types.CallbackQuery, state: FSMContext):
         """Начинает бой"""
@@ -216,7 +300,11 @@ class BattleHandler:
             self.bot_username = bot_info.username
         
         data = await state.get_data()
-        player = data['player']
+        player = data.get('player')
+        if not player:
+            await callback.answer("❌ Игрок не найден")
+            return
+        
         events = data.get('dungeon_events', [])
         current_index = player.position_in_location
         
@@ -234,7 +322,6 @@ class BattleHandler:
         monster_data = current_event["monster"]
         
         # Получаем уровень локации
-        from systems.area_level import Area
         area = Area(player.current_location)
         area_level = area.current_level
         
@@ -255,6 +342,7 @@ class BattleHandler:
         
         # Сохраняем состояние боя
         await state.update_data(
+            player=player,
             battle_enemy=enemy,
             combat_system=combat,
             battle_turn=1,
@@ -273,15 +361,15 @@ class BattleHandler:
     async def show_battle(self, message: types.Message, state: FSMContext):
         """Показывает экран боя"""
         data = await state.get_data()
-        player = data['player']
-        enemy = data['battle_enemy']
+        player = data.get('player')
+        enemy = data.get('battle_enemy')
         combat = data.get('combat_system')
         turn = data.get('battle_turn', 1)
         battle_log = data.get('battle_log', deque(maxlen=10))
         
-        if not combat:
-            combat = CombatSystem(player, enemy)
-            await state.update_data(combat_system=combat)
+        if not player or not enemy or not combat:
+            await message.answer("❌ Ошибка состояния боя")
+            return
         
         # Создаем интерфейс с гиперссылками
         ui = BattleUI.create_battle_screen(
@@ -293,18 +381,23 @@ class BattleHandler:
         except Exception as e:
             # Если ошибка форматирования, пробуем без Markdown
             try:
-                await message.edit_text(ui.replace("*", "").replace("[", "").replace("]", ""))
+                clean_ui = ui.replace("*", "").replace("[", "").replace("]", "").replace("(", "").replace(")", "")
+                await message.edit_text(clean_ui)
             except:
                 await message.answer(ui, parse_mode="Markdown")
     
     async def use_flask(self, message: types.Message, state: FSMContext, flask_index: int):
         """Использование фласки"""
         data = await state.get_data()
-        player = data['player']
-        enemy = data['battle_enemy']
+        player = data.get('player')
+        enemy = data.get('battle_enemy')
         combat = data.get('combat_system')
         turn = data.get('battle_turn', 1)
         battle_log = data.get('battle_log', deque(maxlen=10))
+        
+        if not player or not enemy or not combat:
+            await message.answer("❌ Ошибка состояния боя")
+            return
         
         if flask_index >= len(player.flasks):
             await message.answer("❌ Фласка не найдена")
@@ -334,11 +427,9 @@ class BattleHandler:
             damage = enemy.attack()
             if enemy_action == CombatAction.HEAVY_ATTACK:
                 damage = int(damage * 1.5)
-                result_msg += f"\n💥 {enemy.name} использует тяжелую атаку!"
             
             actual_damage = player.take_damage(damage)
-            result_msg += f"\n💥 {enemy.name} атакует: {actual_damage} урона"
-            
+            result_msg = f"\n💥 {enemy.name} атакует: {actual_damage} урона"
             battle_log.append({"turn": turn, "result": [f"{enemy.name} атакует: {actual_damage} урона"]})
         
         # Обновляем состояние
@@ -364,14 +455,14 @@ class BattleHandler:
     async def process_action(self, message: types.Message, state: FSMContext, action: CombatAction):
         """Обрабатывает действие игрока"""
         data = await state.get_data()
-        player = data['player']
-        enemy = data['battle_enemy']
+        player = data.get('player')
+        enemy = data.get('battle_enemy')
         combat = data.get('combat_system')
         turn = data.get('battle_turn', 1)
         battle_log = data.get('battle_log', deque(maxlen=10))
         
-        if not combat:
-            await message.answer("❌ Ошибка боевой системы")
+        if not player or not enemy or not combat:
+            await message.answer("❌ Ошибка состояния боя")
             return
         
         # Проверяем ману
@@ -426,8 +517,12 @@ class BattleHandler:
     async def show_player_stats(self, message: types.Message, state: FSMContext):
         """Показывает статистику игрока в бою"""
         data = await state.get_data()
-        player = data['player']
-        enemy = data['battle_enemy']
+        player = data.get('player')
+        enemy = data.get('battle_enemy')
+        
+        if not player:
+            await message.answer("❌ Игрок не найден")
+            return
         
         text = (
             f"👤 **{player.name}** | Ур. {player.level}\n\n"
@@ -450,11 +545,14 @@ class BattleHandler:
     async def handle_victory(self, message: types.Message, state: FSMContext):
         """Обрабатывает победу"""
         data = await state.get_data()
-        player = data['player']
-        enemy = data['battle_enemy']
-        combat = data.get('combat_system')
+        player = data.get('player')
+        enemy = data.get('battle_enemy')
         events = data.get('dungeon_events', [])
-        current_index = player.position_in_location
+        current_index = player.position_in_location if player else 0
+        
+        if not player or not enemy:
+            await message.answer("❌ Ошибка состояния")
+            return
         
         # Добавляем опыт
         exp_gained = enemy.get_exp_reward()
@@ -471,7 +569,6 @@ class BattleHandler:
         player.add_kill(enemy.name)
         
         # Генерируем лут
-        from systems.area_level import Area
         area = Area(player.current_location)
         area_level = area.current_level
         
@@ -542,8 +639,12 @@ class BattleHandler:
     async def handle_defeat(self, message: types.Message, state: FSMContext):
         """Обрабатывает поражение"""
         data = await state.get_data()
-        player = data['player']
-        enemy = data['battle_enemy']
+        player = data.get('player')
+        enemy = data.get('battle_enemy')
+        
+        if not player:
+            await message.answer("❌ Ошибка состояния")
+            return
         
         # Увеличиваем счетчик смертей
         player.add_death()
@@ -559,9 +660,11 @@ class BattleHandler:
         player.current_location = 2
         player.position_in_location = 0
         
+        enemy_name = enemy.name if enemy else "врагом"
+        
         text = (
             f"💀 **ПОРАЖЕНИЕ...**\n\n"
-            f"Ты пал в бою с {enemy.emoji} {enemy.name}.\n\n"
+            f"Ты пал в бою с {enemy_name}.\n\n"
             f"Ты очнулся в убежище, едва живой.\n"
             f"❤️ Здоровье: {player.hp}/{player.max_hp}\n"
             f"💙 Мана: {player.mana}/{player.max_mana}\n\n"
@@ -588,7 +691,11 @@ class BattleHandler:
     async def handle_flee(self, message: types.Message, state: FSMContext):
         """Обрабатывает побег"""
         data = await state.get_data()
-        player = data['player']
+        player = data.get('player')
+        
+        if not player:
+            await message.answer("❌ Ошибка состояния")
+            return
         
         text = (
             f"🏃 **ПОБЕГ**\n\n"
