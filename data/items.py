@@ -126,6 +126,13 @@ FLASKS = {
         "uses": 3,
         "rarity": ItemRarity.NORMAL
     },
+    "small_mana": {
+        "name": "Малая бутылка маны",
+        "emoji": "🧪",
+        "heal": 30,
+        "uses": 3,
+        "rarity": ItemRarity.NORMAL
+    },
     "medium_life": {
         "name": "Средняя бутылка здоровья",
         "emoji": "🧪✨",
