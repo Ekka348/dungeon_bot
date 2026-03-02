@@ -12,9 +12,10 @@ from utils.helpers import format_item_list, format_equipment_slots
 class InventoryHandler:
     """Хендлер для управления инвентарем и экипировкой"""
     
-    def __init__(self, bot, dp):
+    def __init__(self, bot, dp, handlers_container):
         self.bot = bot
         self.dp = dp
+        self.handlers = handlers_container
         self._register_handlers()
     
     def _register_handlers(self):
@@ -67,7 +68,7 @@ class InventoryHandler:
     async def show_inventory(self, callback: types.CallbackQuery, state: FSMContext):
         """Показывает инвентарь игрока"""
         data = await state.get_data()
-        player = data['player']
+        player = data.get('player')
         
         if not player:
             await callback.answer("Ошибка: игрок не найден")
@@ -82,7 +83,7 @@ class InventoryHandler:
     def _format_inventory(self, player):
         """Форматирует инвентарь для отображения"""
         if not player.inventory and not player.flasks:
-            return "🎒 **Инвентарь пуст**\n\n💰 Золото: {}".format(player.gold)
+            return f"🎒 **Инвентарь пуст**\n\n💰 Золото: {player.gold}"
         
         lines = ["🎒 **ИНВЕНТАРЬ**\n"]
         
@@ -100,10 +101,7 @@ class InventoryHandler:
                 armor.append(item)
             elif item.item_type in [ItemType.RING, ItemType.AMULET]:
                 other.append(item)
-        
-        # Фласки в инвентаре
-        for item in player.inventory:
-            if item.item_type == ItemType.FLASK:
+            elif item.item_type == ItemType.FLASK:
                 flasks.append(item)
         
         # Нумерация
@@ -168,7 +166,7 @@ class InventoryHandler:
     
     def _check_requirements(self, player, item):
         """Проверяет требования предмета"""
-        if isinstance(item, MeleeWeapon) and item.requirements:
+        if isinstance(item, MeleeWeapon) and hasattr(item, 'requirements') and item.requirements:
             reqs = []
             if "str" in item.requirements and player.strength < item.requirements["str"]:
                 reqs.append(f"💪 {item.requirements['str']}")
@@ -184,7 +182,11 @@ class InventoryHandler:
     async def show_equipment(self, callback: types.CallbackQuery, state: FSMContext):
         """Показывает экипировку игрока"""
         data = await state.get_data()
-        player = data['player']
+        player = data.get('player')
+        
+        if not player:
+            await callback.answer("Ошибка: игрок не найден")
+            return
         
         text = self._format_equipment(player)
         
@@ -226,8 +228,8 @@ class InventoryHandler:
                     lines.append(f"   Крит: {item.crit_chance + item.stats.get('crit_chance', 0)}%")
                 
                 # Показываем аффиксы
-                if item.affixes:
-                    for affix_type, affix_data in item.affixes[:2]:  # Показываем первые 2
+                if hasattr(item, 'affixes') and item.affixes:
+                    for affix_type, affix_data in item.affixes[:2]:
                         value = item.stats.get(affix_data["stat"], 0)
                         stat_names = {
                             "damage": "⚔️ Урон",
@@ -261,7 +263,11 @@ class InventoryHandler:
     async def inspect_item(self, callback: types.CallbackQuery, state: FSMContext):
         """Просмотр детальной информации о предмете"""
         data = await state.get_data()
-        player = data['player']
+        player = data.get('player')
+        
+        if not player:
+            await callback.answer("Ошибка: игрок не найден")
+            return
         
         # Получаем индекс предмета
         parts = callback.data.split('_')
@@ -270,7 +276,7 @@ class InventoryHandler:
             return
         
         try:
-            item_index = int(parts[1]) - 1  # Индексация с 1 в кнопках
+            item_index = int(parts[1]) - 1
         except ValueError:
             await callback.answer("Ошибка: неверный индекс")
             return
@@ -285,7 +291,7 @@ class InventoryHandler:
         text = item.get_detailed_info()
         
         # Проверяем требования
-        if isinstance(item, MeleeWeapon) and item.requirements:
+        if isinstance(item, MeleeWeapon) and hasattr(item, 'requirements') and item.requirements:
             req_text = "\n\n**Требования:** "
             req_parts = []
             if "str" in item.requirements:
@@ -319,7 +325,11 @@ class InventoryHandler:
     async def equip_item(self, callback: types.CallbackQuery, state: FSMContext):
         """Экипирует предмет"""
         data = await state.get_data()
-        player = data['player']
+        player = data.get('player')
+        
+        if not player:
+            await callback.answer("Ошибка: игрок не найден")
+            return
         
         # Получаем индекс предмета
         parts = callback.data.split('_')
@@ -361,19 +371,22 @@ class InventoryHandler:
     async def _equip_flask(self, player, flask, inventory_index):
         """Экипирует фласку"""
         if len(player.flasks) < player.max_flasks:
-            # Просто добавляем в слоты фласок
             player.flasks.append(flask)
             player.inventory.pop(inventory_index)
         else:
-            # Меняем местами с активной флаской
-            active_flask = player.flasks[player.active_flask]
-            player.flasks[player.active_flask] = flask
-            player.inventory[inventory_index] = active_flask
+            if player.flasks:
+                active_flask = player.flasks[player.active_flask]
+                player.flasks[player.active_flask] = flask
+                player.inventory[inventory_index] = active_flask
     
     async def unequip_item(self, callback: types.CallbackQuery, state: FSMContext):
         """Снимает предмет"""
         data = await state.get_data()
-        player = data['player']
+        player = data.get('player')
+        
+        if not player:
+            await callback.answer("Ошибка: игрок не найден")
+            return
         
         # Получаем тип слота
         parts = callback.data.split('_')
@@ -416,7 +429,11 @@ class InventoryHandler:
     async def use_flask(self, callback: types.CallbackQuery, state: FSMContext):
         """Использует фласку (вне боя)"""
         data = await state.get_data()
-        player = data['player']
+        player = data.get('player')
+        
+        if not player:
+            await callback.answer("Ошибка: игрок не найден")
+            return
         
         if not player.flasks:
             await callback.answer("❌ Нет фласок!")
@@ -449,7 +466,11 @@ class InventoryHandler:
     async def switch_flask(self, callback: types.CallbackQuery, state: FSMContext):
         """Переключает активную фласку"""
         data = await state.get_data()
-        player = data['player']
+        player = data.get('player')
+        
+        if not player:
+            await callback.answer("Ошибка: игрок не найден")
+            return
         
         if len(player.flasks) <= 1:
             await callback.answer("❌ Только одна фласка")
@@ -465,7 +486,11 @@ class InventoryHandler:
     async def sort_inventory(self, callback: types.CallbackQuery, state: FSMContext):
         """Сортирует инвентарь"""
         data = await state.get_data()
-        player = data['player']
+        player = data.get('player')
+        
+        if not player:
+            await callback.answer("Ошибка: игрок не найден")
+            return
         
         # Сортировка: сначала оружие, потом броня, потом остальное
         weapons = [i for i in player.inventory if i.item_type == ItemType.WEAPON]
@@ -520,10 +545,10 @@ class InventoryHandler:
     async def confirm_drop(self, callback: types.CallbackQuery, state: FSMContext):
         """Подтверждение удаления предмета"""
         data = await state.get_data()
-        player = data['player']
+        player = data.get('player')
         item_index = data.get('drop_item_index')
         
-        if item_index is None or item_index >= len(player.inventory):
+        if not player or item_index is None or item_index >= len(player.inventory):
             await callback.answer("Ошибка: предмет не найден")
             return
         
@@ -541,66 +566,3 @@ class InventoryHandler:
         await state.update_data(drop_item_index=None)
         await self.show_inventory(callback, state)
         await callback.answer()
-
-
-# ============= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =============
-
-async def show_inventory(callback: types.CallbackQuery, state: FSMContext):
-    """Внешняя функция для показа инвентаря"""
-    handler = InventoryHandler(callback.bot, None)
-    await handler.show_inventory(callback, state)
-
-
-async def show_equipment(callback: types.CallbackQuery, state: FSMContext):
-    """Внешняя функция для показа экипировки"""
-    handler = InventoryHandler(callback.bot, None)
-    await handler.show_equipment(callback, state)
-
-
-async def inspect_item(callback: types.CallbackQuery, state: FSMContext, item_index: int):
-    """Внешняя функция для просмотра предмета"""
-    handler = InventoryHandler(callback.bot, None)
-    
-    # Создаем искусственный callback data
-    callback.data = f"inspect_{item_index}"
-    await handler.inspect_item(callback, state)
-
-
-# ============= ТЕСТОВЫЕ ФУНКЦИИ =============
-
-def test_inventory_formatting():
-    """Тест форматирования инвентаря"""
-    print("=" * 50)
-    print("ТЕСТ ФОРМАТИРОВАНИЯ ИНВЕНТАРЯ")
-    print("=" * 50)
-    
-    from models.player import Player
-    from models.item import generate_melee_weapon, generate_flask
-    
-    player = Player()
-    
-    # Добавляем тестовые предметы
-    for _ in range(3):
-        weapon = generate_melee_weapon(5, "common")
-        player.inventory.append(weapon)
-    
-    for _ in range(2):
-        flask = generate_flask()
-        player.inventory.append(flask)
-    
-    handler = InventoryHandler(None, None)
-    print(handler._format_inventory(player))
-    
-    print("\n" + "=" * 50)
-    print("ТЕСТ ФОРМАТИРОВАНИЯ ЭКИПИРОВКИ")
-    print("=" * 50)
-    
-    # Экипируем оружие
-    if player.inventory:
-        player.equip(player.inventory[0], ItemType.WEAPON)
-    
-    print(handler._format_equipment(player))
-
-
-if __name__ == "__main__":
-    test_inventory_formatting()
