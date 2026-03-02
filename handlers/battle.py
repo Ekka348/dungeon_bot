@@ -40,16 +40,16 @@ class BattleUI:
         # Информация о враге
         enemy_hp_bar = cls._create_hp_bar(enemy.hp, enemy.max_hp, 10)
         enemy_rarity = enemy.get_rarity_color()
-        enemy_name = f"{enemy_rarity} {enemy.emoji} **{enemy.name}**"
+        enemy_name = f"{enemy_rarity} {enemy.emoji} {enemy.name}"
         lines.append(f"{enemy_name} ❤️ {enemy_hp_bar} {enemy.hp}/{enemy.max_hp}")
         lines.append("")
         
-        # Навигационные иконки - используем простой текст без Markdown для них
+        # Навигационные иконки - используем простой текст
         lines.append("🎒 👤 🌀")
         lines.append("_" * 65)
         lines.append("")
         
-        # Панель с характеристиками и действиями - используем обычный текст без Markdown
+        # Панель с характеристиками и действиями
         lines.extend(cls._create_action_panel(player))
         
         return "\n".join(lines)
@@ -68,14 +68,14 @@ class BattleUI:
     
     @classmethod
     def _create_action_panel(cls, player):
-        """Создает панель с характеристиками и действиями (без Markdown)"""
+        """Создает панель с характеристиками и действиями"""
         lines = []
         
         # Полоски здоровья и маны
         player_hp_bar = cls._create_hp_bar(player.hp, player.max_hp, 6)
         player_mana_bar = cls._create_bar(player.mana, player.max_mana, 6)
         
-        # Характеристики игрока - без ссылок
+        # Характеристики игрока
         lines.append(f"❤️ {player_hp_bar} {player.hp}/{player.max_hp}    Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}    ⚔️")
         lines.append("")
         
@@ -85,7 +85,7 @@ class BattleUI:
         buff_flasks = [f for f in player.flasks if "✨" in f.emoji]
         defense_flasks = [f for f in player.flasks if "🛡️" in f.emoji]
         
-        # Первая строка фласок - без ссылок
+        # Первая строка фласок
         health_text = ""
         if len(health_flasks) > 0:
             flask = health_flasks[0]
@@ -104,7 +104,7 @@ class BattleUI:
         
         lines.append(f"{health_text}    {mana_text}    💪")
         
-        # Вторая строка фласок - без ссылок
+        # Вторая строка фласок
         health_text2 = ""
         if len(health_flasks) > 1:
             flask = health_flasks[1]
@@ -123,7 +123,7 @@ class BattleUI:
         
         lines.append(f"{health_text2}    {mana_text2}    ⚡️")
         
-        # Третья строка - бафф и защита - без ссылок
+        # Третья строка - бафф и защита
         buff_text = ""
         if len(buff_flasks) > 0:
             flask = buff_flasks[0]
@@ -419,12 +419,12 @@ class BattleHandler:
             await message.answer("❌ Ошибка состояния боя")
             return
         
-        # Создаем интерфейс с гиперссылками (без Markdown в самом интерфейсе)
+        # Создаем интерфейс с гиперссылками (без Markdown)
         ui = BattleUI.create_battle_screen(
             player, enemy, combat, battle_log, turn, self.bot_username
         )
         
-        # Отправляем без Markdown
+        # Отправляем без Markdown (убираем parse_mode)
         await message.edit_text(ui)
     
     async def use_flask(self, message: types.Message, state: FSMContext, flask_index: int, flask_type: str):
