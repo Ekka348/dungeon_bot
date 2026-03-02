@@ -1,5 +1,6 @@
 import random
 from data.act1 import Act1
+from systems.area_level import MonsterLevelSystem
 
 # ============= МОДЕЛЬ ВРАГА =============
 
@@ -27,9 +28,9 @@ class Enemy:
         
         # Текущее состояние
         self.hp = self.max_hp
-        self.max_hp = self.hp
+        self.max_hp = self.max_hp
         
-        # Уровень монстра (вычисляемое свойство)
+        # Уровень монстра
         self.monster_level = self._calculate_monster_level()
         
         # Модификаторы для редких врагов
@@ -37,22 +38,22 @@ class Enemy:
         self._add_rarity_modifiers()
         
         # Временные эффекты
-        self.buffs = []  # [(name, duration, effect)]
-        self.debuffs = []  # [(name, duration, effect)]
+        self.buffs = []
+        self.debuffs = []
         
         # Статистика боя
         self.turns_taken = 0
         self.damage_dealt = 0
         self.damage_taken = 0
         
-        # Награды (кроме опыта)
+        # Награды
         self.gold_min = int(base_exp * 0.5)
         self.gold_max = int(base_exp * 1.5)
     
     def _scale_stats(self):
-        """Масштабирует характеристики в зависимости от уровня локации и редкости"""
+        """Масштабирует характеристики"""
         # Базовый множитель от уровня локации
-        level_mult = 1 + (self.area_level - 1) * 0.15  # +15% за уровень
+        level_mult = 1 + (self.area_level - 1) * 0.15
         
         # Множитель от редкости
         rarity_mult = {
@@ -62,44 +63,47 @@ class Enemy:
             "boss": 3.0
         }.get(self.rarity, 1.0)
         
+        damage_mult = {
+            "common": 1.0,
+            "magic": 1.2,
+            "rare": 1.5,
+            "boss": 2.0
+        }.get(self.rarity, 1.0)
+        
         # Итоговый множитель
         total_mult = level_mult * rarity_mult
+        damage_total_mult = level_mult * damage_mult
         
         # Масштабируем характеристики
         self.max_hp = int(self.base_hp * total_mult)
-        self.damage_min = int(self.damage_range[0] * total_mult)
-        self.damage_max = int(self.damage_range[1] * total_mult)
+        self.damage_min = int(self.damage_range[0] * damage_total_mult)
+        self.damage_max = int(self.damage_range[1] * damage_total_mult)
         self.accuracy = min(95, int(self.base_accuracy * (1 + (self.area_level - 1) * 0.02)))
         self.defense = int(self.base_defense * (1 + (self.area_level - 1) * 0.1))
         self.exp_reward = int(self.base_exp * total_mult)
         
-        # Золото тоже масштабируется
         self.gold_min = int(self.base_exp * 0.5 * total_mult)
         self.gold_max = int(self.base_exp * 1.5 * total_mult)
     
     def _calculate_monster_level(self):
         """Рассчитывает уровень монстра"""
-        from systems.area_level import AreaLevelSystem
-        return AreaLevelSystem.get_monster_level(self.area_level, self.rarity)
+        return MonsterLevelSystem.get_monster_level(self.area_level, self.rarity)
     
     def _add_rarity_modifiers(self):
         """Добавляет модификаторы в зависимости от редкости"""
         if self.rarity == "magic":
-            # Магические враги получают один случайный модификатор
             self.modifiers.append(self._get_random_modifier())
         elif self.rarity == "rare":
-            # Редкие враги получают 2-3 модификатора
             num_mods = random.randint(2, 3)
             for _ in range(num_mods):
                 self.modifiers.append(self._get_random_modifier())
         elif self.rarity == "boss":
-            # Боссы получают 3-4 модификатора и особые способности
             num_mods = random.randint(3, 4)
             for _ in range(num_mods):
                 self.modifiers.append(self._get_random_modifier())
     
     def _get_random_modifier(self):
-        """Возвращает случайный модификатор для врага"""
+        """Возвращает случайный модификатор"""
         modifiers = [
             {
                 "name": "Крепкий",
@@ -136,30 +140,6 @@ class Enemy:
                 "effect": "poison",
                 "value": 3,
                 "description": "Атаки отравляют цель"
-            },
-            {
-                "name": "Кровавый",
-                "effect": "life_leech",
-                "value": 0.2,
-                "description": "Вампиризм 20%"
-            },
-            {
-                "name": "Неуязвимый",
-                "effect": "damage_reduction",
-                "value": 0.5,
-                "description": "Снижение получаемого урона"
-            },
-            {
-                "name": "Яростный",
-                "effect": "rage",
-                "value": 1.5,
-                "description": "Урон увеличивается с потерей HP"
-            },
-            {
-                "name": "Призыватель",
-                "effect": "summon",
-                "value": 2,
-                "description": "Призывает союзников в бою"
             }
         ]
         return random.choice(modifiers)
@@ -167,31 +147,21 @@ class Enemy:
     # ============= БОЕВЫЕ МЕТОДЫ =============
     
     def attack(self):
-        """Выполняет атаку и возвращает урон"""
-        # Базовый урон
+        """Выполняет атаку"""
         damage = random.randint(self.damage_min, self.damage_max)
         
-        # Применяем модификаторы
         for mod in self.modifiers:
             if mod["effect"] == "damage_mult":
                 damage = int(damage * mod["value"])
-            elif mod["effect"] == "poison" and random.random() < 0.3:
-                # Добавляем эффект отравления
-                self.buffs.append(("poison_attack", 1, {"poison_damage": mod["value"]}))
         
         self.turns_taken += 1
+        self.damage_dealt += damage
         return damage
     
     def take_damage(self, damage):
         """Получает урон"""
-        # Применяем модификаторы защиты
-        actual_damage = damage
-        for mod in self.modifiers:
-            if mod["effect"] == "damage_reduction":
-                actual_damage = int(actual_damage * mod["value"])
-        
         # Учитываем защиту
-        reduced_damage = max(1, actual_damage - self.defense // 3)
+        reduced_damage = max(1, damage - self.defense // 3)
         
         self.hp -= reduced_damage
         self.damage_taken += reduced_damage
@@ -214,7 +184,6 @@ class Enemy:
         filled = int((self.hp / self.max_hp) * length)
         bar = "█" * filled + "░" * (length - filled)
         
-        # Цвет в зависимости от процента здоровья
         hp_percent = self.get_hp_percent()
         if hp_percent > 66:
             color = "🟢"
@@ -228,7 +197,7 @@ class Enemy:
     # ============= МЕТОДЫ ДЛЯ МОДИФИКАТОРОВ =============
     
     def get_modifiers_string(self):
-        """Возвращает строку с модификаторами врага"""
+        """Возвращает строку с модификаторами"""
         if not self.modifiers:
             return ""
         
@@ -239,10 +208,6 @@ class Enemy:
             "accuracy_bonus": "🎯",
             "speed_mult": "⚡",
             "poison": "☠️",
-            "life_leech": "🩸",
-            "damage_reduction": "🔰",
-            "rage": "😤",
-            "summon": "👥"
         }
         
         mods = []
@@ -253,7 +218,7 @@ class Enemy:
         return " | ".join(mods)
     
     def get_rarity_color(self):
-        """Возвращает цвет редкости врага"""
+        """Возвращает цвет редкости"""
         colors = {
             "common": "🟢",
             "magic": "🟣",
@@ -276,67 +241,15 @@ class Enemy:
     
     def get_gold_reward(self):
         """Возвращает случайное количество золота"""
-        return random.randint(self.gold_min, self.gold_max)
+        return MonsterLevelSystem.get_gold_reward(
+            self.base_exp, self.monster_level, self.area_level, self.rarity
+        )
     
     def get_exp_reward(self):
         """Возвращает награду опытом"""
-        return self.exp_reward
-    
-    # ============= МЕТОДЫ ДЛЯ БОССОВ =============
-    
-    def apply_phase_change(self, phase):
-        """Применяет изменения для фазы босса"""
-        if "damage_mult" in phase:
-            self.damage_min = int(self.damage_min * phase["damage_mult"])
-            self.damage_max = int(self.damage_max * phase["damage_mult"])
-        
-        if "speed_mult" in phase:
-            # Здесь будет изменение скорости
-            pass
-        
-        if "adds" in phase:
-            # Здесь будет призыв дополнительных врагов
-            pass
-    
-    # ============= МЕТОДЫ ВРЕМЕННЫХ ЭФФЕКТОВ =============
-    
-    def add_buff(self, name, duration, effect):
-        """Добавляет временный бафф"""
-        self.buffs.append([name, duration, effect])
-    
-    def add_debuff(self, name, duration, effect):
-        """Добавляет временный дебафф"""
-        self.debuffs.append([name, duration, effect])
-    
-    def update_effects(self):
-        """Обновляет длительность эффектов"""
-        # Обновляем баффы
-        new_buffs = []
-        for buff in self.buffs:
-            buff[1] -= 1
-            if buff[1] > 0:
-                new_buffs.append(buff)
-            else:
-                self._remove_buff_effect(buff[2])
-        self.buffs = new_buffs
-        
-        # Обновляем дебаффы
-        new_debuffs = []
-        for debuff in self.debuffs:
-            debuff[1] -= 1
-            if debuff[1] > 0:
-                new_debuffs.append(debuff)
-            else:
-                self._remove_debuff_effect(debuff[2])
-        self.debuffs = new_debuffs
-    
-    def _remove_buff_effect(self, effect):
-        """Убирает эффект баффа"""
-        pass
-    
-    def _remove_debuff_effect(self, effect):
-        """Убирает эффект дебаффа"""
-        pass
+        return MonsterLevelSystem.get_experience_reward(
+            self.base_exp, self.monster_level, 1, self.rarity
+        )
     
     # ============= МЕТОДЫ СОЗДАНИЯ =============
     
@@ -361,7 +274,6 @@ class Enemy:
     def from_location(cls, location_id, area_level, rarity=None):
         """Создает случайного врага из локации"""
         if rarity is None:
-            # Случайная редкость
             roll = random.random()
             if roll < 0.7:
                 rarity = "common"
@@ -420,7 +332,7 @@ class Enemy:
             f"🎯 Точность: {self.accuracy}%\n"
             f"🛡️ Защита: {self.defense}\n"
             f"✨ Редкость: {self.get_rarity_name()}\n"
-            f"📈 Уровень локации: {self.area_level}\n"
+            f"📈 Уровень: {self.area_level}\n"
         )
         
         if self.modifiers:
