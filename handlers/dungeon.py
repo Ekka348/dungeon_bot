@@ -20,6 +20,7 @@ class DungeonHandler:
         self.dp = dp
         self.handlers = handlers_container
         self.loot_system = LootSystem()
+        self.bot_username = None
         self._register_handlers()
     
     def _register_handlers(self):
@@ -66,8 +67,17 @@ class DungeonHandler:
         async def take_rest(callback: types.CallbackQuery, state: FSMContext):
             await self.take_rest(callback, state)
     
+    async def next_step_command(self, message: types.Message, state: FSMContext):
+        """Обрабатывает команду next_step из гиперссылки"""
+        await self.next_step(message, state)
+    
     async def enter_dungeon(self, callback: types.CallbackQuery, state: FSMContext):
         """Вход в подземелье"""
+        # Получаем username бота
+        if not self.bot_username:
+            bot_info = await self.bot.me()
+            self.bot_username = bot_info.username
+        
         data = await state.get_data()
         player = data.get('player')
         
@@ -122,15 +132,46 @@ class DungeonHandler:
             f"{progress_bar}\n\n"
             f"📍 **Событие {current_index + 1}/{len(events)}**\n\n"
             f"{event_info}\n\n"
-            f"👤 {player.hp}/{player.max_hp} ❤️ | Ур. {player.level}"
+            f"👤 {player.hp}/{player.max_hp} ❤️ | Ур. {player.level}\n"
+            f"💙 {player.mana}/{player.max_mana} MP"
         )
         
-        keyboard = get_dungeon_keyboard(current_event, player)
+        # Создаем клавиатуру для подземелья
+        keyboard = self._create_dungeon_keyboard(current_event)
         
         try:
-            await message.edit_text(text, reply_markup=keyboard)
+            await message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
         except:
-            await message.answer(text, reply_markup=keyboard)
+            await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
+    
+    def _create_dungeon_keyboard(self, event):
+        """Создает клавиатуру для подземелья"""
+        buttons = []
+        
+        if event["type"] == "battle" and not event.get("completed", False):
+            buttons.append([InlineKeyboardButton(text="⚔️ Вступить в бой", callback_data="start_battle")])
+        elif event["type"] == "boss" and not event.get("completed", False):
+            buttons.append([InlineKeyboardButton(text="👑 Сразиться с боссом", callback_data="start_battle")])
+        elif event["type"] == "chest" and not event.get("completed", False):
+            buttons.append([InlineKeyboardButton(text="📦 Открыть сундук", callback_data="open_chest")])
+        elif event["type"] == "trap" and not event.get("completed", False):
+            buttons.append([InlineKeyboardButton(text="⚠️ Пройти ловушку", callback_data="trigger_trap")])
+        elif event["type"] == "rest" and not event.get("completed", False):
+            buttons.append([InlineKeyboardButton(text="🔥 Отдохнуть", callback_data="take_rest")])
+        elif event["type"] == "transition" and not event.get("completed", False):
+            buttons.append([InlineKeyboardButton(text="🚪 Перейти", callback_data="go_to_next_location")])
+        
+        # Навигационные кнопки
+        nav_row = []
+        if event.get("completed", False):
+            nav_row.append(InlineKeyboardButton(text="➡️ Далее", callback_data="next_step"))
+        
+        nav_row.append(InlineKeyboardButton(text="🏚️ Убежище", callback_data="return_to_haven"))
+        nav_row.append(InlineKeyboardButton(text="🗺️ Карта", callback_data="show_map"))
+        
+        buttons.append(nav_row)
+        
+        return InlineKeyboardMarkup(inline_keyboard=buttons)
     
     def _format_event(self, event):
         """Форматирует событие"""
@@ -161,8 +202,15 @@ class DungeonHandler:
             )
         return "❓ Неизвестное событие"
     
-    async def next_step(self, callback: types.CallbackQuery, state: FSMContext):
+    async def next_step(self, message_or_callback, state: FSMContext):
         """Переход к следующему событию"""
+        if isinstance(message_or_callback, types.CallbackQuery):
+            message = message_or_callback.message
+            callback = message_or_callback
+        else:
+            message = message_or_callback
+            callback = None
+        
         data = await state.get_data()
         player = data['player']
         events = data.get('dungeon_events', [])
@@ -171,11 +219,12 @@ class DungeonHandler:
         await state.update_data(player=player)
         
         if player.position_in_location >= len(events):
-            await self.show_location_complete(callback.message, state)
+            await self.show_location_complete(message, state)
         else:
-            await self.show_dungeon(callback.message, state)
+            await self.show_dungeon(message, state)
         
-        await callback.answer()
+        if callback:
+            await callback.answer()
     
     async def show_location_complete(self, message: types.Message, state: FSMContext):
         """Завершение локации"""
@@ -255,7 +304,7 @@ class DungeonHandler:
         player.position_in_location = 0
         
         # Генерируем события для новой локации
-        events = Act1.generate_location_events(8)  # Временно используем Act1
+        events = Act1.generate_location_events(8)
         await state.update_data(player=player, dungeon_events=events)
         
         text = (
@@ -358,7 +407,7 @@ class DungeonHandler:
         current_index = player.position_in_location
         
         if current_index >= len(events):
-            await callback.answer("Ошибка: событие не найдено")
+            await callback.answer("Ошибка: событие не найдена")
             return
         
         current_event = events[current_index]
@@ -407,7 +456,7 @@ class DungeonHandler:
         current_index = player.position_in_location
         
         if current_index >= len(events):
-            await callback.answer("Ошибка: событие не найдено")
+            await callback.answer("Ошибка: событие не найдена")
             return
         
         current_event = events[current_index]
