@@ -38,33 +38,21 @@ class BattleUI:
         
         lines = []
         
-        # Заголовок с раундом
-        lines.append(f"⚔️ **РАУНД {turn}**")
+        # Первая строка - сообщение из лога или приветствие
+        first_message = "⚔️ Бой начался!"
+        if battle_log and len(battle_log) > 0:
+            last_entry = list(battle_log)[-1]
+            if last_entry and last_entry.get("result"):
+                first_message = last_entry["result"][-1]
+        
+        lines.append(first_message)
         lines.append("")
         
         # Информация о враге
         enemy_hp_bar = cls._create_hp_bar(enemy.hp, enemy.max_hp, 10)
         enemy_rarity = enemy.get_rarity_color()
         enemy_name = f"{enemy_rarity} {enemy.emoji} **{enemy.name}**"
-        lines.append(f"  {enemy_name}")
-        lines.append(f"  ❤️ {enemy_hp_bar} {enemy.hp}/{enemy.max_hp}")
-        lines.append("")
-        
-        # Верхняя граница
-        lines.append("🟫" * 40)
-        lines.append("")
-        
-        # Лог боя (последние 3 сообщения)
-        log_messages = cls._get_battle_log(battle_log)
-        for msg in log_messages:
-            # Центрируем сообщение
-            clean_msg = cls._clean_text(msg)
-            padding = " " * ((80 - len(clean_msg)) // 2)
-            lines.append(f"{padding}{msg}")
-        lines.append("")
-        
-        # Нижняя граница
-        lines.append("🟫" * 40)
+        lines.append(f"{enemy_name} ❤️ {enemy_hp_bar} {enemy.hp}/{enemy.max_hp}")
         lines.append("")
         
         # Нижняя панель с интерфейсом
@@ -77,25 +65,6 @@ class BattleUI:
         """Очищает текст от Markdown для подсчета длины"""
         import re
         return re.sub(r'[*_`\[\]]', '', text)
-    
-    @classmethod
-    def _get_battle_log(cls, battle_log, max_messages=3):
-        """Получает последние сообщения из лога боя"""
-        if not battle_log:
-            return ["⚔️ Бой начался!"]
-        
-        messages = []
-        log_list = list(battle_log) if hasattr(battle_log, '__iter__') else battle_log
-        
-        for entry in log_list[-max_messages:]:
-            if entry and entry.get("result"):
-                last_msg = entry["result"][-1] if entry["result"] else "⚔️"
-                messages.append(last_msg)
-        
-        while len(messages) < max_messages:
-            messages.insert(0, "⚔️")
-        
-        return messages[-max_messages:]
     
     @classmethod
     def _create_hp_bar(cls, current, maximum, length):
@@ -111,93 +80,123 @@ class BattleUI:
     
     @classmethod
     def _create_bottom_panel(cls, player, bot_username):
-        """Создает нижнюю панель с 4 колонками"""
+        """Создает нижнюю панель с интерфейсом"""
         
-        # Верхняя линия
-        top_line = f"{cls.TOP_LEFT}{cls.HORIZONTAL * 25}{cls.TOP_MID}{cls.HORIZONTAL * 25}{cls.TOP_MID}{cls.HORIZONTAL * 15}{cls.TOP_RIGHT}"
+        # Верхняя линия с иконками навигации
+        nav_line = f"[🎒](tg://resolve?domain={bot_username}&start=battle_inventory)[👤](tg://resolve?domain={bot_username}&start=battle_stats)[🌀](tg://resolve?domain={bot_username}&start=return_haven)"
         
-        # Разделители
-        separator1 = f"{cls.CROSS}{cls.HORIZONTAL * 25}{cls.CROSS}{cls.HORIZONTAL * 25}{cls.CROSS}{cls.HORIZONTAL * 15}{cls.CROSS}"
-        separator2 = f"{cls.CROSS}{cls.HORIZONTAL * 25}{cls.CROSS}{cls.HORIZONTAL * 25}{cls.CROSS}{cls.HORIZONTAL * 15}{cls.CROSS}"
+        lines = [nav_line]
+        lines.append("_" * 65)
         
-        # Нижняя линия
-        bottom_line = f"{cls.BOTTOM_LEFT}{cls.HORIZONTAL * 25}{cls.BOTTOM_MID}{cls.HORIZONTAL * 25}{cls.BOTTOM_MID}{cls.HORIZONTAL * 15}{cls.BOTTOM_RIGHT}"
+        # Первая строка панели (пустая)
+        lines.append(f"|{' ' * 50}|{' ' * 22}|{' ' * 10}|")
         
-        # Заголовок с иконками
-        header = (
-            f"{cls.VERTICAL}"
-            f"[👤](tg://resolve?domain={bot_username}&start=battle_stats)   "
-            f"[🎒](tg://resolve?domain={bot_username}&start=battle_inventory)   "
-            f"[🌀](tg://resolve?domain={bot_username}&start=return_haven)      "
-            f"{cls.VERTICAL}{' ' * 25}{cls.VERTICAL}{' ' * 25}{cls.VERTICAL}"
+        # Вторая строка - здоровье и мана игрока, и обычная атака
+        player_hp_bar = cls._create_hp_bar(player.hp, player.max_hp, 6)
+        player_mana_bar = cls._create_bar(player.mana, player.max_mana, 6)
+        
+        second_line = (
+            f"|  ❤️ {player_hp_bar} {player.hp}/{player.max_hp}    "
+            f"|      Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}     "
+            f"|         [⚔️](tg://resolve?domain={bot_username}&start=battle_attack)       |"
         )
+        lines.append(second_line)
         
-        # Левая колонка - здоровье и мана
-        player_hp_bar = cls._create_hp_bar(player.hp, player.max_hp, 10)
-        player_mana_bar = cls._create_bar(player.mana, player.max_mana, 10)
+        # Третья строка (пустая)
+        lines.append(f"|{' ' * 50}|{' ' * 22}|{' ' * 10}|")
         
-        left_col = [
-            f"{cls.VERTICAL}  ❤️ {player_hp_bar} {player.hp}/{player.max_hp}  {cls.VERTICAL}",
-            f"{cls.VERTICAL}  Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}  {cls.VERTICAL}",
-        ]
+        # Четвертая строка - фласки
+        # Находим фласки по типам
+        health_flasks = [f for f in player.flasks if "💊" in f.emoji or "🧪" in f.emoji]
+        mana_flasks = [f for f in player.flasks if "Ⓜ️" in f.emoji]
+        buff_flasks = [f for f in player.flasks if "✨" in f.emoji]
         
-        # Центральная колонка - фласки
-        flask_lines = []
+        # Формируем строку фласок
+        health_flask_text = ""
+        if len(health_flasks) > 0:
+            flask = health_flasks[0]
+            flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
+            health_flask_text = f"[🟢💊🧪](tg://resolve?domain={bot_username}&start=battle_flask_health_0) [{flask_bar}]"
+        else:
+            health_flask_text = "🟢💊🧪 [   ]"
         
-        # Фласки здоровья (первые 3, если есть)
-        health_flasks = [f for f in player.flasks if "💊" in f.emoji or "🧪" in f.emoji][:3]
-        mana_flasks = [f for f in player.flasks if "Ⓜ️" in f.emoji][:3]
+        mana_flask_text = ""
+        if len(mana_flasks) > 0:
+            flask = mana_flasks[0]
+            flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
+            mana_flask_text = f"[🟢Ⓜ️🧪](tg://resolve?domain={bot_username}&start=battle_flask_mana_0) [{flask_bar}]"
+        else:
+            mana_flask_text = "🟢Ⓜ️🧪 [   ]"
         
-        # Фласки здоровья
-        for i, flask in enumerate(health_flasks[:2]):  # Максимум 2 фласки здоровья
-            flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 5)
-            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_{i}"
-            flask_lines.append(
-                f"{cls.VERTICAL}      [🟢💊🧪]({flask_link}) [{flask_bar}]         {cls.VERTICAL}"
-            )
+        buff_flask_text = ""
+        if len(buff_flasks) > 0:
+            flask = buff_flasks[0]
+            flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
+            buff_flask_text = f"[⚪️✨🧪](tg://resolve?domain={bot_username}&start=battle_flask_buff_0) [{flask_bar}]"
+        else:
+            buff_flask_text = "⚪️✨🧪 [   ]"
         
-        # Фласки маны
-        for i, flask in enumerate(mana_flasks[:2]):  # Максимум 2 фласки маны
-            flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 5)
-            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_mana_{i}"
-            flask_lines.append(
-                f"{cls.VERTICAL}      [🟢Ⓜ️🧪]({flask_link}) [{flask_bar}]         {cls.VERTICAL}"
-            )
+        fourth_line = (
+            f"|      {health_flask_text}         "
+            f"|         {mana_flask_text}             "
+            f"|        [💪](tg://resolve?domain={bot_username}&start=battle_heavy)       |"
+        )
+        lines.append(fourth_line)
         
-        # Бафф фласки
-        buff_flasks = [f for f in player.flasks if "✨" in f.emoji][:2]
-        for i, flask in enumerate(buff_flasks):
-            flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 5)
-            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_buff_{i}"
-            flask_lines.append(
-                f"{cls.VERTICAL}      [⚪️✨🧪]({flask_link}) [{flask_bar}]         {cls.VERTICAL}"
-            )
+        # Пятая строка - вторая фласка здоровья (если есть) и вторая фласка маны
+        health_flask2_text = ""
+        if len(health_flasks) > 1:
+            flask = health_flasks[1]
+            flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
+            health_flask2_text = f"[🟢💊🧪](tg://resolve?domain={bot_username}&start=battle_flask_health_1) [{flask_bar}]"
+        else:
+            health_flask2_text = "🟢💊🧪 [   ]"
         
-        # Дополняем пустыми строками до 3
-        while len(flask_lines) < 3:
-            flask_lines.append(f"{cls.VERTICAL}{' ' * 25}{cls.VERTICAL}")
+        mana_flask2_text = ""
+        if len(mana_flasks) > 1:
+            flask = mana_flasks[1]
+            flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
+            mana_flask2_text = f"[🟢Ⓜ️🧪](tg://resolve?domain={bot_username}&start=battle_flask_mana_1) [{flask_bar}]"
+        else:
+            mana_flask2_text = "🟢Ⓜ️🧪 [   ]"
         
-        # Правая колонка - действия
-        action_lines = [
-            f"{cls.VERTICAL}         [⚔️](tg://resolve?domain={bot_username}&start=battle_attack)          {cls.VERTICAL}",
-            f"{cls.VERTICAL}         [💪](tg://resolve?domain={bot_username}&start=battle_heavy)          {cls.VERTICAL}",
-            f"{cls.VERTICAL}         [⚡️](tg://resolve?domain={bot_username}&start=battle_fast)          {cls.VERTICAL}",
-        ]
+        fifth_line = (
+            f"|      {health_flask2_text}         "
+            f"|         {mana_flask2_text}             "
+            f"|{' ' * 10}|"
+        )
+        lines.append(fifth_line)
         
-        # Собираем все строки
-        panel_lines = [
-            top_line,
-            header,
-            separator1,
-            f"{left_col[0]}{flask_lines[0]}{action_lines[0]}",
-            separator2,
-            f"{left_col[1]}{flask_lines[1]}{action_lines[1]}",
-            separator2,
-            f"{cls.VERTICAL}{' ' * 25}{cls.VERTICAL}{flask_lines[2]}{action_lines[2]}",
-            bottom_line
-        ]
+        # Шестая строка - третья фласка (обычно бафф)
+        buff_flask2_text = ""
+        if len(buff_flasks) > 1:
+            flask = buff_flasks[1]
+            flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
+            buff_flask2_text = f"[⚪️✨🧪](tg://resolve?domain={bot_username}&start=battle_flask_buff_1) [{flask_bar}]"
+        else:
+            buff_flask2_text = "⚪️✨🧪 [   ]"
         
-        return "\n".join(panel_lines)
+        # Защитная фласка (третья в ряду)
+        defense_flask_text = ""
+        defense_flasks = [f for f in player.flasks if "🛡️" in f.emoji]
+        if len(defense_flasks) > 0:
+            flask = defense_flasks[0]
+            flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
+            defense_flask_text = f"[🔵🛡️🧪](tg://resolve?domain={bot_username}&start=battle_flask_defense_0) [{flask_bar}]"
+        else:
+            defense_flask_text = "🔵🛡️🧪 [   ]"
+        
+        sixth_line = (
+            f"|     {defense_flask_text}         "
+            f"|                                                      "
+            f"|        [⚡️](tg://resolve?domain={bot_username}&start=battle_fast)       |"
+        )
+        lines.append(sixth_line)
+        
+        # Нижняя граница
+        lines.append("|" + "_" * 50 + "|" + "_" * 22 + "|" + "_" * 10 + "|")
+        
+        return "\n".join(lines)
 
 
 # ============= ОСНОВНОЙ ХЕНДЛЕР БОЯ =============
@@ -239,27 +238,30 @@ class BattleHandler:
             await self.process_action(message, state, CombatAction.HEAVY_ATTACK)
         elif command == 'battle_fast':
             await self.process_action(message, state, CombatAction.FAST_ATTACK)
-        elif command.startswith('battle_flask_'):
+        elif command.startswith('battle_flask_health_'):
             try:
-                # Обычная фласка
-                flask_index = int(command.split('_')[2])
+                flask_index = int(command.split('_')[3])
                 await self.use_flask(message, state, flask_index, "health")
             except (IndexError, ValueError):
-                await message.answer("❌ Ошибка использования фласки")
+                await message.answer("❌ Ошибка использования фласки здоровья")
         elif command.startswith('battle_flask_mana_'):
             try:
-                # Фласка маны
                 flask_index = int(command.split('_')[3])
                 await self.use_flask(message, state, flask_index, "mana")
             except (IndexError, ValueError):
-                await message.answer("❌ Ошибка использования фласки")
+                await message.answer("❌ Ошибка использования фласки маны")
         elif command.startswith('battle_flask_buff_'):
             try:
-                # Фласка баффа
                 flask_index = int(command.split('_')[3])
                 await self.use_flask(message, state, flask_index, "buff")
             except (IndexError, ValueError):
-                await message.answer("❌ Ошибка использования фласки")
+                await message.answer("❌ Ошибка использования фласки баффа")
+        elif command.startswith('battle_flask_defense_'):
+            try:
+                flask_index = int(command.split('_')[3])
+                await self.use_flask(message, state, flask_index, "defense")
+            except (IndexError, ValueError):
+                await message.answer("❌ Ошибка использования фласки защиты")
         elif command == 'battle_stats':
             await self.show_player_stats(message, state)
         elif command == 'battle_inventory':
@@ -330,7 +332,7 @@ class BattleHandler:
         if flasks:
             lines.append("**🧪 ФЛАСКИ:**")
             for item in flasks:
-                flask_type = "🟢💊" if "💊" in item.emoji else "🟢Ⓜ️" if "Ⓜ️" in item.emoji else "⚪️✨"
+                flask_type = "🟢💊" if "💊" in item.emoji else "🟢Ⓜ️" if "Ⓜ️" in item.emoji else "⚪️✨" if "✨" in item.emoji else "🔵🛡️"
                 lines.append(f"{index}. {flask_type} {item.get_name_colored()} [{item.current_uses}/{item.flask_data['uses']}]")
                 index += 1
             lines.append("")
@@ -412,13 +414,17 @@ class BattleHandler:
         # Создаем боевую систему
         combat = CombatSystem(player, enemy)
         
+        # Создаем начальный лог
+        battle_log = deque(maxlen=10)
+        battle_log.append({"turn": 0, "result": ["⚔️ Бой начался!"]})
+        
         # Сохраняем состояние боя
         await state.update_data(
             player=player,
             battle_enemy=enemy,
             combat_system=combat,
             battle_turn=1,
-            battle_log=deque(maxlen=10)
+            battle_log=battle_log
         )
         
         # Удаляем сообщение с кнопкой
@@ -473,12 +479,19 @@ class BattleHandler:
         
         # Находим подходящую фласку по типу
         available_flasks = []
+        type_emoji = ""
         if flask_type == "health":
             available_flasks = [f for f in player.flasks if "💊" in f.emoji]
+            type_emoji = "🟢💊"
         elif flask_type == "mana":
             available_flasks = [f for f in player.flasks if "Ⓜ️" in f.emoji]
+            type_emoji = "🟢Ⓜ️"
         elif flask_type == "buff":
             available_flasks = [f for f in player.flasks if "✨" in f.emoji]
+            type_emoji = "⚪️✨"
+        elif flask_type == "defense":
+            available_flasks = [f for f in player.flasks if "🛡️" in f.emoji]
+            type_emoji = "🔵🛡️"
         
         if flask_index >= len(available_flasks):
             await message.answer("❌ Фласка не найдена")
@@ -503,8 +516,12 @@ class BattleHandler:
             else:
                 result_msg = "❌ Фласка пуста!"
         
+        elif flask_type == "defense":
+            # Фласка защиты
+            result_msg = "🛡️ Использована фласка защиты"
+            flask.use()
+        
         else:  # buff
-            # Здесь будет логика для бафф фласок
             result_msg = "✨ Использована фласка баффа"
             flask.use()
         
@@ -563,11 +580,8 @@ class BattleHandler:
         result = combat.process_turn(action)
         
         # Добавляем результат в лог
-        battle_log.append({
-            "turn": turn,
-            "action": action.value,
-            "result": result.messages.copy()
-        })
+        for msg in result.messages:
+            battle_log.append({"turn": turn, "result": [msg]})
         
         # Обновляем данные
         await state.update_data(
