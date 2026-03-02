@@ -14,8 +14,8 @@ class Player:
         self.act = 1
         self.current_location = 1
         self.position_in_location = 0
-        self.visited_locations = {1}  # ID посещенных локаций
-        self.talked_to_npcs = set()    # ID NPC, с которыми уже говорили
+        self.visited_locations = {1}
+        self.talked_to_npcs = set()
         
         # Базовые статы
         self.hp = 150
@@ -59,7 +59,7 @@ class Player:
         self._init_starter_flask()
         
         # Квесты
-        self.quests = {}  # Будет заполнено через QuestManager
+        self.quests = {}
         
         # Статистика
         self.kill_stats = {}
@@ -77,6 +77,32 @@ class Player:
         """Создает стартовую фласку"""
         from models.item import Flask
         self.flasks.append(Flask("small_life"))
+    
+    # ============= МЕТОДЫ ИНВЕНТАРЯ =============
+    
+    def add_item(self, item):
+        """Добавляет предмет в инвентарь"""
+        if item:
+            self.inventory.append(item)
+            return True
+        return False
+    
+    def remove_item(self, item_or_index):
+        """Удаляет предмет из инвентаря"""
+        if isinstance(item_or_index, int):
+            if 0 <= item_or_index < len(self.inventory):
+                return self.inventory.pop(item_or_index)
+        else:
+            if item_or_index in self.inventory:
+                self.inventory.remove(item_or_index)
+                return item_or_index
+        return None
+    
+    def get_inventory_item(self, index):
+        """Получает предмет по индексу"""
+        if 0 <= index < len(self.inventory):
+            return self.inventory[index]
+        return None
     
     # ============= БОЕВЫЕ МЕТОДЫ =============
     
@@ -174,7 +200,7 @@ class Player:
     
     def can_equip(self, item):
         """Проверяет возможность экипировки"""
-        if isinstance(item, MeleeWeapon) and hasattr(item, 'requirements'):
+        if isinstance(item, MeleeWeapon) and hasattr(item, 'requirements') and item.requirements:
             req = item.requirements
             if req.get("str", 0) > self.strength:
                 return False, f"Требуется сила: {req['str']}"
@@ -273,7 +299,6 @@ class Player:
         return f"{self.position_in_location + 1}/{total_events}"
     
     # ============= МЕТОДЫ КВЕСТОВ =============
-    # Эти методы будут переопределены при подключении QuestManager
     
     def get_active_quests(self):
         """Получить активные квесты"""
@@ -326,7 +351,7 @@ class Player:
         """Смерть игрока"""
         self.add_death()
         
-        haven_id = 2  # Убежище в первом акте
+        haven_id = 2
         self.current_location = haven_id
         self.position_in_location = 0
         self.hp = self.max_hp // 2
