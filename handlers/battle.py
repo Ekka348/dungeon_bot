@@ -9,7 +9,7 @@ from urllib.parse import quote
 
 from models.player import Player
 from models.enemy import Enemy
-from models.item import Item, MeleeWeapon, Flask
+from models.item import Item, MeleeWeapon, Flask, ItemType
 from data.act1 import Act1
 from systems.combat import CombatSystem, CombatAction, ActionResult
 from systems.area_level import Area, DifficultyCalculator, MonsterLevelSystem
@@ -91,63 +91,69 @@ class BattleKeyboard:
         defense_flasks = [f for f in player.flasks if "🛡️" in f.emoji]
         
         # Строка с фласками здоровья и маны
-        health_text1 = "🟢💊🧪 [   ]"
+        health_text1 = "⬜ [   ]"  # Пустая фласка по умолчанию
         if len(health_flasks) > 0:
             flask = health_flasks[0]
             flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
             health_text1 = f"🟢💊🧪 [{flask_bar}]"
         
-        mana_text1 = "🟢Ⓜ️🧪 [   ]"
+        mana_text1 = "⬜ [   ]"  # Пустая фласка по умолчанию
         if len(mana_flasks) > 0:
             flask = mana_flasks[0]
             flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
             mana_text1 = f"🟢Ⓜ️🧪 [{flask_bar}]"
         
         buttons.append([
-            InlineKeyboardButton(text=health_text1, callback_data=f"battle_flask_health_0" if len(health_flasks) > 0 else "ignore"),
-            InlineKeyboardButton(text="⚔️ Атака оружием", callback_data="battle_attack"),
-            InlineKeyboardButton(text=mana_text1, callback_data=f"battle_flask_mana_0" if len(mana_flasks) > 0 else "ignore")
+            InlineKeyboardButton(text=health_text1, 
+                               callback_data=f"battle_flask_health_0" if len(health_flasks) > 0 else "ignore"),
+            InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),  # ИЗМЕНЕНО ЗДЕСЬ
+            InlineKeyboardButton(text=mana_text1, 
+                               callback_data=f"battle_flask_mana_0" if len(mana_flasks) > 0 else "ignore")
         ])
         
         # Вторая строка с фласками
-        health_text2 = "🟢💊🧪 [   ]"
+        health_text2 = "⬜ [   ]"  # Пустая фласка по умолчанию
         if len(health_flasks) > 1:
             flask = health_flasks[1]
             flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
             health_text2 = f"🟢💊🧪 [{flask_bar}]"
         
-        mana_text2 = "🟢Ⓜ️🧪 [   ]"
+        mana_text2 = "⬜ [   ]"  # Пустая фласка по умолчанию
         if len(mana_flasks) > 1:
             flask = mana_flasks[1]
             flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
             mana_text2 = f"🟢Ⓜ️🧪 [{flask_bar}]"
         
         buttons.append([
-            InlineKeyboardButton(text=health_text2, callback_data=f"battle_flask_health_1" if len(health_flasks) > 1 else "ignore"),
+            InlineKeyboardButton(text=health_text2, 
+                               callback_data=f"battle_flask_health_1" if len(health_flasks) > 1 else "ignore"),
             InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
-            InlineKeyboardButton(text=mana_text2, callback_data=f"battle_flask_mana_1" if len(mana_flasks) > 1 else "ignore")
+            InlineKeyboardButton(text=mana_text2, 
+                               callback_data=f"battle_flask_mana_1" if len(mana_flasks) > 1 else "ignore")
         ])
         
         # Третья строка - бафф, защита и умение
-        buff_text = "⚪️✨🧪 [   ]"
+        buff_text = "⬜ [   ]"  # Пустая фласка по умолчанию
         if len(buff_flasks) > 0:
             flask = buff_flasks[0]
             flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
             buff_text = f"⚪️✨🧪 [{flask_bar}]"
         
-        defense_text = "🔵🛡️🧪 [   ]"
+        defense_text = "⬜ [   ]"  # Пустая фласка по умолчанию
         if len(defense_flasks) > 0:
             flask = defense_flasks[0]
             flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
             defense_text = f"🔵🛡️🧪 [{flask_bar}]"
         
         buttons.append([
-            InlineKeyboardButton(text=buff_text, callback_data=f"battle_flask_buff_0" if len(buff_flasks) > 0 else "ignore"),
+            InlineKeyboardButton(text=buff_text, 
+                               callback_data=f"battle_flask_buff_0" if len(buff_flasks) > 0 else "ignore"),
             InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast"),
-            InlineKeyboardButton(text=defense_text, callback_data=f"battle_flask_defense_0" if len(defense_flasks) > 0 else "ignore")
+            InlineKeyboardButton(text=defense_text, 
+                               callback_data=f"battle_flask_defense_0" if len(defense_flasks) > 0 else "ignore")
         ])
         
-        # Четвертая строка - навигация (полные названия)
+        # Четвертая строка - навигация
         buttons.append([
             InlineKeyboardButton(text="👤 Персонаж", callback_data="battle_stats"),
             InlineKeyboardButton(text="🎒 Инвентарь", callback_data="battle_inventory"),
@@ -236,7 +242,7 @@ class BattleHandler:
         
         @self.dp.callback_query(lambda c: c.data == "battle_inventory")
         async def battle_inventory(callback: types.CallbackQuery, state: FSMContext):
-            await self.show_inventory(callback, state)
+            await self.handlers.inventory.show_inventory(callback, state)
         
         @self.dp.callback_query(lambda c: c.data == "start_battle")
         async def start_battle(callback: types.CallbackQuery, state: FSMContext):
@@ -249,84 +255,6 @@ class BattleHandler:
         @self.dp.callback_query(lambda c: c.data == "return_to_haven")
         async def return_to_haven(callback: types.CallbackQuery, state: FSMContext):
             await self.handlers.haven.enter_haven(callback, state)
-    
-    async def show_inventory(self, callback: types.CallbackQuery, state: FSMContext):
-        """Показывает инвентарь"""
-        data = await state.get_data()
-        player = data.get('player')
-        
-        if not player:
-            await callback.answer("❌ Игрок не найден")
-            return
-        
-        text = self._format_inventory(player)
-        
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="◀ Назад в бой", callback_data="battle_back")]
-        ])
-        
-        await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
-        await callback.answer()
-    
-    def _format_inventory(self, player):
-        """Форматирует инвентарь для отображения"""
-        if not player.inventory and not player.flasks:
-            return f"🎒 **Инвентарь пуст**\n\n💰 Золото: {player.gold}"
-        
-        lines = ["🎒 **ИНВЕНТАРЬ**\n"]
-        
-        # Группируем предметы по типу
-        weapons = []
-        armor = []
-        other = []
-        flasks = []
-        
-        from models.item import ItemType
-        for item in player.inventory:
-            if item.item_type == ItemType.WEAPON:
-                weapons.append(item)
-            elif item.item_type in [ItemType.HELMET, ItemType.ARMOR, ItemType.GLOVES, 
-                                    ItemType.BOOTS, ItemType.BELT]:
-                armor.append(item)
-            elif item.item_type in [ItemType.RING, ItemType.AMULET]:
-                other.append(item)
-            elif item.item_type == ItemType.FLASK:
-                flasks.append(item)
-        
-        index = 1
-        
-        if weapons:
-            lines.append("**⚔️ ОРУЖИЕ:**")
-            for item in weapons:
-                lines.append(f"{index}. {item.get_name_colored()}")
-                index += 1
-            lines.append("")
-        
-        if armor:
-            lines.append("**🛡️ БРОНЯ:**")
-            for item in armor:
-                lines.append(f"{index}. {item.get_name_colored()}")
-                index += 1
-            lines.append("")
-        
-        if other:
-            lines.append("**💍 АКСЕССУАРЫ:**")
-            for item in other:
-                lines.append(f"{index}. {item.get_name_colored()}")
-                index += 1
-            lines.append("")
-        
-        if flasks:
-            lines.append("**🧪 ФЛАСКИ:**")
-            for item in flasks:
-                flask_type = "🟢💊" if "💊" in item.emoji else "🟢Ⓜ️" if "Ⓜ️" in item.emoji else "⚪️✨" if "✨" in item.emoji else "🔵🛡️"
-                lines.append(f"{index}. {flask_type} {item.get_name_colored()} [{item.current_uses}/{item.flask_data['uses']}]")
-                index += 1
-            lines.append("")
-        
-        lines.append(f"💰 Золото: {player.gold}")
-        
-        return "\n".join(lines)
     
     async def start_battle(self, callback: types.CallbackQuery, state: FSMContext):
         """Начинает бой"""
