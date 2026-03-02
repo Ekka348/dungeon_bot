@@ -7,7 +7,6 @@ from models.item import Item, ItemType, ItemRarity, MeleeWeapon, Flask
 from utils.keyboards import get_inventory_keyboard, get_item_action_keyboard
 from utils.helpers import format_item_list, format_equipment_slots
 
-# ============= ОСНОВНОЙ ХЕНДЛЕР ИНВЕНТАРЯ =============
 
 class InventoryHandler:
     """Хендлер для управления инвентарем и экипировкой"""
@@ -64,6 +63,10 @@ class InventoryHandler:
         @self.dp.callback_query(lambda c: c.data == "cancel_drop")
         async def cancel_drop(callback: types.CallbackQuery, state: FSMContext):
             await self.cancel_drop(callback, state)
+        
+        @self.dp.callback_query(lambda c: c.data == "show_inventory_battle")
+        async def show_inventory_battle(callback: types.CallbackQuery, state: FSMContext):
+            await self.show_inventory(callback, state)
     
     async def show_inventory(self, callback: types.CallbackQuery, state: FSMContext):
         """Показывает инвентарь игрока"""
@@ -150,7 +153,8 @@ class InventoryHandler:
             lines.append("**🧪 ФЛАСКИ (ЭКИПИРОВАНЫ):**")
             for i, flask in enumerate(player.flasks):
                 marker = "👉" if i == player.active_flask else "  "
-                lines.append(f"{marker} {flask.get_name_colored()} [{flask.current_uses}/{flask.flask_data['uses']}]")
+                flask_type = "🟢💊" if i == 0 else "⚪️✨" if i == 1 else "🔵🛡️"
+                lines.append(f"{marker} {flask_type} {flask.get_name_colored()} [{flask.current_uses}/{flask.flask_data['uses']}]")
             lines.append("")
         
         lines.append(f"💰 Золото: {player.gold}")
@@ -250,6 +254,7 @@ class InventoryHandler:
         # Итоговые статы
         lines.append("📊 **ИТОГОВЫЕ СТАТЫ:**")
         lines.append(f"❤️ HP: {player.hp}/{player.max_hp}")
+        lines.append(f"💙 Мана: {player.mana}/{player.max_mana}")
         lines.append(f"⚔️ Урон: {player.get_total_damage()}")
         lines.append(f"🛡️ Защита: {player.defense}")
         lines.append(f"🎯 Точность: {player.accuracy}%")
@@ -516,6 +521,11 @@ class InventoryHandler:
     async def drop_item(self, callback: types.CallbackQuery, state: FSMContext):
         """Запрос на удаление предмета"""
         data = await state.get_data()
+        player = data.get('player')
+        
+        if not player:
+            await callback.answer("Ошибка: игрок не найден")
+            return
         
         # Получаем индекс предмета
         parts = callback.data.split('_')
@@ -527,6 +537,10 @@ class InventoryHandler:
             item_index = int(parts[1]) - 1
         except ValueError:
             await callback.answer("Ошибка: неверный индекс")
+            return
+        
+        if item_index >= len(player.inventory):
+            await callback.answer("Предмет не найден")
             return
         
         # Сохраняем индекс для подтверждения
