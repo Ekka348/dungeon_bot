@@ -9,10 +9,10 @@ from models.item import Item, MeleeWeapon, Flask
 
 class CombatAction(Enum):
     ATTACK = "attack"       # Атака
-    HEAVY_ATTACK = "heavy"  # Тяжелая атака (тратит больше энергии, но больше урона)
-    FAST_ATTACK = "fast"    # Быстрая атака (меньше урона, но выше шанс)
-    DEFEND = "defend"       # Защита (снижает получаемый урон)
-    DODGE = "dodge"         # Уклонение (шанс полностью избежать урона)
+    HEAVY_ATTACK = "heavy"  # Тяжелая атака
+    FAST_ATTACK = "fast"    # Быстрая атака
+    DEFEND = "defend"       # Защита
+    DODGE = "dodge"         # Уклонение
     USE_FLASK = "flask"     # Использовать фласку
     USE_SKILL = "skill"     # Использовать навык
     RUN = "run"             # Попытка сбежать
@@ -62,7 +62,7 @@ class ComboSystem:
     def add_hit(self):
         """Добавляет удар в комбо"""
         self.combo_counter = min(self.combo_counter + 1, self.max_combo)
-        self.combo_timer = 3  # 3 хода на поддержание комбо
+        self.combo_timer = 3
         self._update_multiplier()
         return self.combo_counter
     
@@ -94,80 +94,26 @@ class ComboSystem:
         return None
 
 
-# ============= СИСТЕМА ЭНЕРГИИ =============
-
-class EnergySystem:
-    """Система энергии для боя"""
-    
-    def __init__(self, max_energy=3):
-        self.max_energy = max_energy
-        self.current_energy = max_energy
-        self.energy_regen = 1  # Восстановление в ход
-    
-    def can_use_action(self, action_cost):
-        """Проверяет, хватает ли энергии"""
-        return self.current_energy >= action_cost
-    
-    def use_energy(self, cost):
-        """Тратит энергию"""
-        if self.can_use_action(cost):
-            self.current_energy -= cost
-            return True
-        return False
-    
-    def regen(self):
-        """Восстанавливает энергию"""
-        self.current_energy = min(self.max_energy, self.current_energy + self.energy_regen)
-    
-    def get_energy_bar(self, length=5):
-        """Возвращает визуальную полоску энергии"""
-        filled = int((self.current_energy / self.max_energy) * length)
-        return "🔋" * filled + "⚪" * (length - filled)
-
-
-# ============= СИСТЕМА ФАЗ БОССА =============
-
-class BossPhase:
-    """Фаза босса"""
-    
-    def __init__(self, name, hp_percent, damage_mult=1.0, speed_mult=1.0, adds=None):
-        self.name = name
-        self.hp_percent = hp_percent
-        self.damage_mult = damage_mult
-        self.speed_mult = speed_mult
-        self.adds = adds or []
-        self.activated = False
-    
-    def check_activation(self, current_hp, max_hp):
-        """Проверяет, нужно ли активировать фазу"""
-        hp_percent = (current_hp / max_hp) * 100
-        return not self.activated and hp_percent <= self.hp_percent
-    
-    def activate(self, enemy):
-        """Активирует фазу"""
-        self.activated = True
-        enemy.damage_min = int(enemy.damage_min * self.damage_mult)
-        enemy.damage_max = int(enemy.damage_max * self.damage_mult)
-        
-        messages = [f"⚠️ **{self.name}**"]
-        
-        if self.adds:
-            messages.append(f"👥 {self.name}: призыв миньонов!")
-        
-        return messages
-
-
 # ============= ОСНОВНАЯ СИСТЕМА БОЯ =============
 
 class CombatSystem:
     """Основная система боя"""
     
+    # Стоимость действий в мане
+    MANA_COSTS = {
+        CombatAction.ATTACK: 5,
+        CombatAction.HEAVY_ATTACK: 15,
+        CombatAction.FAST_ATTACK: 8,
+        CombatAction.DEFEND: 10,
+        CombatAction.DODGE: 12,
+        CombatAction.USE_FLASK: 0,
+        CombatAction.RUN: 20
+    }
+    
     def __init__(self, player, enemy):
         self.player = player
         self.enemy = enemy
         self.combo = ComboSystem()
-        self.player_energy = EnergySystem(3)
-        self.enemy_energy = EnergySystem(2)  # У врагов меньше энергии
         
         # Система фаз для боссов
         self.phases = []
@@ -191,6 +137,13 @@ class CombatSystem:
         """Обрабатывает ход игрока"""
         result = ActionResult()
         self.turn_count += 1
+        
+        # Проверяем ману
+        mana_cost = self.MANA_COSTS.get(player_action, 0)
+        if mana_cost > 0 and not self.player.use_mana(mana_cost):
+            result.add_message(f"💙 Недостаточно маны! Нужно {mana_cost}")
+            # Если нет маны, просто защищаемся
+            player_action = CombatAction.DEFEND
         
         # Враг выбирает действие
         enemy_action = self._choose_enemy_action()
@@ -224,8 +177,9 @@ class CombatSystem:
         # Обновление комбо
         self.combo.update_timer()
         
-        # Восстановление энергии
-        self.player_energy.regen()
+        # Восстанавливаем ману (немного каждый ход)
+        if hasattr(self.player, 'restore_mana'):
+            self.player.restore_mana(3)
         
         # Добавляем в лог
         self._add_to_log(result)
@@ -234,23 +188,17 @@ class CombatSystem:
     
     def _choose_enemy_action(self):
         """ИИ врага выбирает действие"""
-        # Простая логика: если у врага мало здоровья, чаще защищается
         hp_percent = self.enemy.get_hp_percent()
         
         if hp_percent < 30 and random.random() < 0.4:
             return CombatAction.DEFEND
-        elif self.enemy_energy.current_energy >= 2 and random.random() < 0.3:
+        elif random.random() < 0.3:
             return CombatAction.HEAVY_ATTACK
         else:
             return CombatAction.ATTACK
     
     def _process_attack(self, result, enemy_action):
         """Обрабатывает обычную атаку"""
-        # Стоимость энергии
-        if not self.player_energy.use_energy(1):
-            result.add_message("⚡ Не хватает энергии!")
-            return
-        
         # Атака игрока
         hit_chance = self.player.accuracy
         
@@ -263,7 +211,7 @@ class CombatSystem:
                 result.crit = True
                 result.add_message(f"🔥 КРИТ! {damage} урона")
             else:
-                result.add_message(f"⚔️ {damage} урона")
+                result.add_message(f"⚔️ Атака: {damage} урона")
             
             # Применяем урон
             actual_damage = self.enemy.take_damage(damage)
@@ -291,23 +239,18 @@ class CombatSystem:
             self._process_enemy_attack(result, enemy_action)
     
     def _process_heavy_attack(self, result, enemy_action):
-        """Обрабатывает тяжелую атаку (больше урона, тратит 2 энергии)"""
-        if not self.player_energy.use_energy(2):
-            result.add_message("⚡ Не хватает энергии для тяжелой атаки!")
-            self._process_attack(result, enemy_action)
-            return
-        
+        """Обрабатывает тяжелую атаку"""
         hit_chance = self.player.accuracy - 10  # Тяжелая атака менее точная
         
         if random.randint(1, 100) <= hit_chance:
-            damage = int(self.player.get_total_damage() * 1.5)  # 50% больше урона
+            damage = int(self.player.get_total_damage() * 1.5)
             
             if random.randint(1, 100) <= self.player.crit_chance:
                 damage = int(damage * (self.player.crit_multiplier / 100))
                 result.crit = True
                 result.add_message(f"🔥 КРИТИЧЕСКАЯ ТЯЖЕЛАЯ АТАКА! {damage} урона")
             else:
-                result.add_message(f"⚔️💪 Тяжелая атака! {damage} урона")
+                result.add_message(f"💪 Тяжелая атака: {damage} урона")
             
             actual_damage = self.enemy.take_damage(damage)
             result.player_damage = actual_damage
@@ -332,15 +275,11 @@ class CombatSystem:
             self._process_enemy_attack(result, enemy_action)
     
     def _process_fast_attack(self, result, enemy_action):
-        """Обрабатывает быструю атаку (меньше урона, но выше шанс)"""
-        if not self.player_energy.use_energy(1):
-            result.add_message("⚡ Не хватает энергии!")
-            return
-        
+        """Обрабатывает быструю атаку"""
         hit_chance = self.player.accuracy + 15  # Быстрая атака точнее
         
         if random.randint(1, 100) <= hit_chance:
-            damage = int(self.player.get_total_damage() * 0.7)  # 30% меньше урона
+            damage = int(self.player.get_total_damage() * 0.7)
             
             # Повышенный шанс крита
             crit_chance = self.player.crit_chance + 10
@@ -349,7 +288,7 @@ class CombatSystem:
                 result.crit = True
                 result.add_message(f"🔥 КРИТИЧЕСКАЯ БЫСТРАЯ АТАКА! {damage} урона")
             else:
-                result.add_message(f"⚡ Быстрая атака! {damage} урона")
+                result.add_message(f"⚡ Быстрая атака: {damage} урона")
             
             actual_damage = self.enemy.take_damage(damage)
             result.player_damage = actual_damage
@@ -369,10 +308,6 @@ class CombatSystem:
     
     def _process_defend(self, result, enemy_action):
         """Обрабатывает защиту"""
-        if not self.player_energy.use_energy(1):
-            result.add_message("⚡ Не хватает энергии!")
-            return
-        
         result.add_message("🛡️ Ты встаешь в защитную стойку!")
         
         # Бонус к защите на этот ход
@@ -400,10 +335,6 @@ class CombatSystem:
     
     def _process_dodge(self, result, enemy_action):
         """Обрабатывает уклонение"""
-        if not self.player_energy.use_energy(1):
-            result.add_message("⚡ Не хватает энергии!")
-            return
-        
         result.add_message("💨 Ты готовишься уклониться!")
         
         # Шанс уклонения
@@ -450,12 +381,11 @@ class CombatSystem:
                         break
         else:
             result.add_message("❌ Фласка пуста!")
-            # Пробуем переключиться
-            if self.player._switch_to_next_flask():
+            if hasattr(self.player, '_switch_to_next_flask') and self.player._switch_to_next_flask():
                 result.add_message(f"🔄 Переключено на {self.player.flasks[self.player.active_flask].name}")
         
         # Враг может атаковать во время использования фласки
-        if self.enemy.is_alive() and random.random() < 0.7:  # 70% шанс что враг атакует
+        if self.enemy.is_alive() and random.random() < 0.7:
             enemy_damage = self.enemy.attack()
             self.player.take_damage(enemy_damage)
             result.enemy_damage = enemy_damage
@@ -468,7 +398,7 @@ class CombatSystem:
     
     def _process_run(self, result, enemy_action):
         """Обрабатывает попытку сбежать"""
-        if random.random() < 0.5:  # 50% шанс
+        if random.random() < 0.5:
             result.fled = True
             result.add_message("🏃 Ты сбежал!")
         else:
@@ -493,24 +423,17 @@ class CombatSystem:
                 result.add_message(f"🙏 {self.enemy.name} промахнулся")
         
         elif enemy_action == CombatAction.HEAVY_ATTACK:
-            if self.enemy_energy.use_energy(2):
-                if random.randint(1, 100) <= self.enemy.accuracy - 10:
-                    damage = int(self.enemy.attack() * 1.5)
-                    actual_damage = self.player.take_damage(damage)
-                    result.enemy_damage = actual_damage
-                    self.enemy_total_damage += actual_damage
-                    result.add_message(f"💥💪 {self.enemy.name} использует тяжелую атаку: {actual_damage} урона")
-                else:
-                    result.add_message(f"🙏 {self.enemy.name} промахнулся тяжелой атакой")
+            if random.randint(1, 100) <= self.enemy.accuracy - 10:
+                damage = int(self.enemy.attack() * 1.5)
+                actual_damage = self.player.take_damage(damage)
+                result.enemy_damage = actual_damage
+                self.enemy_total_damage += actual_damage
+                result.add_message(f"💥 {self.enemy.name} использует тяжелую атаку: {actual_damage} урона")
             else:
-                # Если нет энергии, обычная атака
-                self._process_enemy_attack(result, CombatAction.ATTACK)
+                result.add_message(f"🙏 {self.enemy.name} промахнулся тяжелой атакой")
         
         elif enemy_action == CombatAction.DEFEND:
             result.add_message(f"🛡️ {self.enemy.name} защищается")
-        
-        # Враг восстанавливает энергию
-        self.enemy_energy.regen()
     
     def is_player_dead(self):
         """Проверяет, мертв ли игрок"""
@@ -522,7 +445,6 @@ class CombatSystem:
     
     def get_battle_status(self):
         """Возвращает статус боя"""
-        # Полоски здоровья
         player_hp_bar = self._get_hp_bar(self.player.hp, self.player.max_hp)
         enemy_hp_bar = self.enemy.get_hp_bar()
         
@@ -531,8 +453,8 @@ class CombatSystem:
         if self.combo.combo_counter >= 3:
             combo_info = f"🔥 Комбо x{self.combo.combo_counter}!"
         
-        # Информация об энергии
-        energy_bar = self.player_energy.get_energy_bar()
+        # Информация о мане
+        mana_bar = self._get_hp_bar(self.player.mana, self.player.max_mana, "💙")
         
         # Информация о враге
         enemy_info = self.enemy.get_battle_string()
@@ -546,14 +468,14 @@ class CombatSystem:
         
         return {
             "player_hp": f"👤 {player_hp_bar}",
+            "player_mana": f"💙 {mana_bar}",
             "enemy_info": enemy_info,
-            "energy": f"⚡ Энергия: {energy_bar}",
             "combo": combo_info,
             "flasks": flask_text,
             "turn": self.turn_count
         }
     
-    def _get_hp_bar(self, current, max_hp, length=10):
+    def _get_hp_bar(self, current, max_hp, emoji="❤️", length=10):
         """Возвращает полоску здоровья"""
         filled = int((current / max_hp) * length)
         bar = "█" * filled + "░" * (length - filled)
@@ -590,9 +512,9 @@ class CombatSystem:
             return "История боя пуста"
         
         lines = ["📋 **ИСТОРИЯ БОЯ**\n"]
-        for entry in self.battle_log[-5:]:  # Последние 5 ходов
+        for entry in self.battle_log[-5:]:
             lines.append(f"**Ход {entry['turn']}:**")
-            for msg in entry['messages'][:2]:  # Первые 2 сообщения
+            for msg in entry['messages'][:2]:
                 lines.append(f"  {msg}")
             lines.append("")
         
@@ -609,71 +531,33 @@ class CombatSystem:
         )
 
 
-# ============= ТЕСТОВЫЕ ФУНКЦИИ =============
+# ============= ФАЗЫ БОССА =============
 
-def test_combat_system():
-    """Тест боевой системы"""
-    print("=" * 50)
-    print("ТЕСТ БОЕВОЙ СИСТЕМЫ")
-    print("=" * 50)
+class BossPhase:
+    """Фаза босса"""
     
-    # Создаем тестового игрока
-    player = Player()
+    def __init__(self, name, hp_percent, damage_mult=1.0, speed_mult=1.0, adds=None):
+        self.name = name
+        self.hp_percent = hp_percent
+        self.damage_mult = damage_mult
+        self.speed_mult = speed_mult
+        self.adds = adds or []
+        self.activated = False
     
-    # Создаем тестового врага
-    from data.act1 import Act1
-    monster_data = Act1.get_random_monster(1, "common")
-    enemy = Enemy.from_monster_data(monster_data, area_level=1, rarity="common")
+    def check_activation(self, current_hp, max_hp):
+        """Проверяет, нужно ли активировать фазу"""
+        hp_percent = (current_hp / max_hp) * 100
+        return not self.activated and hp_percent <= self.hp_percent
     
-    print("\n🔹 Начало боя:")
-    print(f"Игрок: {player.hp}/{player.max_hp} HP")
-    print(f"Враг: {enemy.hp}/{enemy.max_hp} HP")
-    
-    # Создаем боевую систему
-    combat = CombatSystem(player, enemy)
-    
-    # Симулируем несколько ходов
-    actions = [CombatAction.ATTACK, CombatAction.HEAVY_ATTACK, 
-               CombatAction.FAST_ATTACK, CombatAction.DEFEND, 
-               CombatAction.DODGE, CombatAction.USE_FLASK]
-    
-    turn = 1
-    while not combat.is_player_dead() and not combat.is_enemy_dead() and turn <= 10:
-        print(f"\n🔸 ХОД {turn}")
-        print("-" * 30)
+    def activate(self, enemy):
+        """Активирует фазу"""
+        self.activated = True
+        enemy.damage_min = int(enemy.damage_min * self.damage_mult)
+        enemy.damage_max = int(enemy.damage_max * self.damage_mult)
         
-        # Случайное действие
-        action = random.choice(actions)
-        print(f"Действие: {action.value}")
+        messages = [f"⚠️ **{self.name}**"]
         
-        # Обрабатываем ход
-        result = combat.process_turn(action)
+        if self.adds:
+            messages.append(f"👥 {self.name}: призыв миньонов!")
         
-        # Выводим результат
-        print(result.get_text())
-        print()
-        
-        # Выводим статус
-        status = combat.get_battle_status()
-        print(status["enemy_info"])
-        print(status["player_hp"])
-        print(status["energy"])
-        if status["combo"]:
-            print(status["combo"])
-        print(status["flasks"])
-        
-        turn += 1
-    
-    # Итоги
-    print("\n🔹 ИТОГИ БОЯ:")
-    if combat.is_enemy_dead():
-        print(f"🎉 Победа! Враг повержен за {turn-1} ходов")
-    elif combat.is_player_dead():
-        print(f"💀 Поражение...")
-    
-    print(combat.get_summary())
-    print("\n" + combat.get_battle_log())
-
-
-if __name__ == "__main__":
-    test_combat_system()
+        return messages
