@@ -37,8 +37,8 @@ class BattleUI:
         lines.append(first_message)
         lines.append("")
         
-        # Информация о враге
-        enemy_hp_bar = cls._create_hp_bar(enemy.hp, enemy.max_hp, 8)  # Уменьшил до 8
+        # Информация о враге - шкала 5 символов
+        enemy_hp_bar = cls._create_hp_bar(enemy.hp, enemy.max_hp, 5)
         enemy_rarity = enemy.get_rarity_color()
         enemy_name = f"{enemy_rarity} {enemy.emoji} {enemy.name}"
         lines.append(f"{enemy_name} ❤️ {enemy_hp_bar} {enemy.hp}/{enemy.max_hp}")
@@ -70,9 +70,9 @@ class BattleKeyboard:
         
         buttons = []
         
-        # Полоски здоровья и маны (уменьшил длину до 5)
-        player_hp_bar = BattleUI._create_hp_bar(player.hp, player.max_hp, 5)
-        player_mana_bar = BattleUI._create_bar(player.mana, player.max_mana, 5)
+        # Полоски здоровья и маны (длина 3 символа)
+        player_hp_bar = BattleUI._create_hp_bar(player.hp, player.max_hp, 3)
+        player_mana_bar = BattleUI._create_bar(player.mana, player.max_mana, 3)
         
         hp_text = f"❤️ {player_hp_bar} {player.hp}/{player.max_hp}"
         mana_text = f"Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}"
@@ -105,7 +105,7 @@ class BattleKeyboard:
         
         buttons.append([
             InlineKeyboardButton(text=health_text1, callback_data=f"battle_flask_health_0" if len(health_flasks) > 0 else "ignore"),
-            InlineKeyboardButton(text="Атака ⚔️", callback_data="battle_attack"),
+            InlineKeyboardButton(text="⚔️ Атака оружием", callback_data="battle_attack"),
             InlineKeyboardButton(text=mana_text1, callback_data=f"battle_flask_mana_0" if len(mana_flasks) > 0 else "ignore")
         ])
         
@@ -124,7 +124,7 @@ class BattleKeyboard:
         
         buttons.append([
             InlineKeyboardButton(text=health_text2, callback_data=f"battle_flask_health_1" if len(health_flasks) > 1 else "ignore"),
-            InlineKeyboardButton(text="Мощная 💪", callback_data="battle_heavy"),
+            InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
             InlineKeyboardButton(text=mana_text2, callback_data=f"battle_flask_mana_1" if len(mana_flasks) > 1 else "ignore")
         ])
         
@@ -143,11 +143,11 @@ class BattleKeyboard:
         
         buttons.append([
             InlineKeyboardButton(text=buff_text, callback_data=f"battle_flask_buff_0" if len(buff_flasks) > 0 else "ignore"),
-            InlineKeyboardButton(text="Умение ⚡️", callback_data="battle_fast"),
+            InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast"),
             InlineKeyboardButton(text=defense_text, callback_data=f"battle_flask_defense_0" if len(defense_flasks) > 0 else "ignore")
         ])
         
-        # Четвертая строка - навигация
+        # Четвертая строка - навигация (полные названия)
         buttons.append([
             InlineKeyboardButton(text="👤 Персонаж", callback_data="battle_stats"),
             InlineKeyboardButton(text="🎒 Инвентарь", callback_data="battle_inventory"),
@@ -155,11 +155,6 @@ class BattleKeyboard:
         ])
         
         return InlineKeyboardMarkup(inline_keyboard=buttons)
-    
-    @classmethod
-    def get_empty_button(cls):
-        """Создает пустую неактивную кнопку"""
-        return InlineKeyboardButton(text="⬜", callback_data="ignore")
 
 
 # ============= ОСНОВНОЙ ХЕНДЛЕР БОЯ =============
@@ -205,23 +200,35 @@ class BattleHandler:
         
         @self.dp.callback_query(lambda c: c.data.startswith("battle_flask_health_"))
         async def battle_flask_health(callback: types.CallbackQuery, state: FSMContext):
-            flask_index = int(callback.data.split('_')[3])
-            await self.use_flask(callback, state, flask_index, "health")
+            try:
+                flask_index = int(callback.data.split('_')[3])
+                await self.use_flask(callback, state, flask_index, "health")
+            except:
+                await callback.answer("❌ Ошибка")
         
         @self.dp.callback_query(lambda c: c.data.startswith("battle_flask_mana_"))
         async def battle_flask_mana(callback: types.CallbackQuery, state: FSMContext):
-            flask_index = int(callback.data.split('_')[3])
-            await self.use_flask(callback, state, flask_index, "mana")
+            try:
+                flask_index = int(callback.data.split('_')[3])
+                await self.use_flask(callback, state, flask_index, "mana")
+            except:
+                await callback.answer("❌ Ошибка")
         
         @self.dp.callback_query(lambda c: c.data.startswith("battle_flask_buff_"))
         async def battle_flask_buff(callback: types.CallbackQuery, state: FSMContext):
-            flask_index = int(callback.data.split('_')[3])
-            await self.use_flask(callback, state, flask_index, "buff")
+            try:
+                flask_index = int(callback.data.split('_')[3])
+                await self.use_flask(callback, state, flask_index, "buff")
+            except:
+                await callback.answer("❌ Ошибка")
         
         @self.dp.callback_query(lambda c: c.data.startswith("battle_flask_defense_"))
         async def battle_flask_defense(callback: types.CallbackQuery, state: FSMContext):
-            flask_index = int(callback.data.split('_')[3])
-            await self.use_flask(callback, state, flask_index, "defense")
+            try:
+                flask_index = int(callback.data.split('_')[3])
+                await self.use_flask(callback, state, flask_index, "defense")
+            except:
+                await callback.answer("❌ Ошибка")
         
         @self.dp.callback_query(lambda c: c.data == "battle_stats")
         async def battle_stats(callback: types.CallbackQuery, state: FSMContext):
