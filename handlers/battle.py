@@ -46,8 +46,8 @@ class BattleUI:
         
         # Навигационные иконки
         nav_line = (
-            f"[🎒](tg://resolve?domain={bot_username}&start=battle_inventory)"
-            f"[👤](tg://resolve?domain={bot_username}&start=battle_stats)"
+            f"[🎒](tg://resolve?domain={bot_username}&start=battle_inventory) "
+            f"[👤](tg://resolve?domain={bot_username}&start=battle_stats) "
             f"[🌀](tg://resolve?domain={bot_username}&start=return_haven)"
         )
         lines.append(nav_line)
@@ -81,10 +81,10 @@ class BattleUI:
         player_mana_bar = cls._create_bar(player.mana, player.max_mana, 6)
         
         # Характеристики игрока
-        lines.append(f"❤️ {player_hp_bar} {player.hp}/{player.max_hp}    Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}    [⚔️](tg://resolve?domain={bot_username}&start=battle_attack)")
+        attack_link = f"tg://resolve?domain={bot_username}&start=battle_attack"
+        lines.append(f"❤️ {player_hp_bar} {player.hp}/{player.max_hp}    Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}    [⚔️]({attack_link})")
         lines.append("")
         
-        # Фласки
         # Находим фласки по типам
         health_flasks = [f for f in player.flasks if "💊" in f.emoji or "🧪" in f.emoji]
         mana_flasks = [f for f in player.flasks if "Ⓜ️" in f.emoji]
@@ -96,7 +96,8 @@ class BattleUI:
         if len(health_flasks) > 0:
             flask = health_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            health_text = f"[🟢💊🧪](tg://resolve?domain={bot_username}&start=battle_flask_health_0) [{flask_bar}]"
+            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_health_0"
+            health_text = f"[🟢💊🧪]({flask_link}) [{flask_bar}]"
         else:
             health_text = "🟢💊🧪 [   ]"
         
@@ -104,18 +105,21 @@ class BattleUI:
         if len(mana_flasks) > 0:
             flask = mana_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            mana_text = f"[🟢Ⓜ️🧪](tg://resolve?domain={bot_username}&start=battle_flask_mana_0) [{flask_bar}]"
+            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_mana_0"
+            mana_text = f"[🟢Ⓜ️🧪]({flask_link}) [{flask_bar}]"
         else:
             mana_text = "🟢Ⓜ️🧪 [   ]"
         
-        lines.append(f"{health_text}    {mana_text}    [💪](tg://resolve?domain={bot_username}&start=battle_heavy)")
+        heavy_link = f"tg://resolve?domain={bot_username}&start=battle_heavy"
+        lines.append(f"{health_text}    {mana_text}    [💪]({heavy_link})")
         
         # Вторая строка фласок
         health_text2 = ""
         if len(health_flasks) > 1:
             flask = health_flasks[1]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            health_text2 = f"[🟢💊🧪](tg://resolve?domain={bot_username}&start=battle_flask_health_1) [{flask_bar}]"
+            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_health_1"
+            health_text2 = f"[🟢💊🧪]({flask_link}) [{flask_bar}]"
         else:
             health_text2 = "🟢💊🧪 [   ]"
         
@@ -123,18 +127,21 @@ class BattleUI:
         if len(mana_flasks) > 1:
             flask = mana_flasks[1]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            mana_text2 = f"[🟢Ⓜ️🧪](tg://resolve?domain={bot_username}&start=battle_flask_mana_1) [{flask_bar}]"
+            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_mana_1"
+            mana_text2 = f"[🟢Ⓜ️🧪]({flask_link}) [{flask_bar}]"
         else:
             mana_text2 = "🟢Ⓜ️🧪 [   ]"
         
-        lines.append(f"{health_text2}    {mana_text2}    [⚡️](tg://resolve?domain={bot_username}&start=battle_fast)")
+        fast_link = f"tg://resolve?domain={bot_username}&start=battle_fast"
+        lines.append(f"{health_text2}    {mana_text2}    [⚡️]({fast_link})")
         
         # Третья строка - бафф и защита
         buff_text = ""
         if len(buff_flasks) > 0:
             flask = buff_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            buff_text = f"[⚪️✨🧪](tg://resolve?domain={bot_username}&start=battle_flask_buff_0) [{flask_bar}]"
+            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_buff_0"
+            buff_text = f"[⚪️✨🧪]({flask_link}) [{flask_bar}]"
         else:
             buff_text = "⚪️✨🧪 [   ]"
         
@@ -142,7 +149,8 @@ class BattleUI:
         if len(defense_flasks) > 0:
             flask = defense_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            defense_text = f"[🔵🛡️🧪](tg://resolve?domain={bot_username}&start=battle_flask_defense_0) [{flask_bar}]"
+            flask_link = f"tg://resolve?domain={bot_username}&start=battle_flask_defense_0"
+            defense_text = f"[🔵🛡️🧪]({flask_link}) [{flask_bar}]"
         else:
             defense_text = "🔵🛡️🧪 [   ]"
         
@@ -178,6 +186,10 @@ class BattleHandler:
         @self.dp.message(lambda message: message.text and message.text.startswith('/start return_haven'))
         async def return_haven_command(message: types.Message, state: FSMContext):
             await self.return_to_haven(message, state)
+        
+        @self.dp.message(lambda message: message.text and message.text.startswith('/start battle_back'))
+        async def battle_back_command(message: types.Message, state: FSMContext):
+            await self.show_battle(message, state)
         
         @self.dp.callback_query(lambda c: c.data == "start_battle")
         async def start_battle(callback: types.CallbackQuery, state: FSMContext):
@@ -228,6 +240,8 @@ class BattleHandler:
             await self.show_inventory(message, state)
         elif command == 'return_haven':
             await self.return_to_haven(message, state)
+        elif command == 'battle_back':
+            await self.show_battle(message, state)
     
     async def show_inventory(self, message: types.Message, state: FSMContext):
         """Показывает инвентарь"""
@@ -244,7 +258,8 @@ class BattleHandler:
     def _format_inventory(self, player):
         """Форматирует инвентарь для отображения"""
         if not player.inventory and not player.flasks:
-            return f"🎒 **Инвентарь пуст**\n\n💰 Золото: {player.gold}\n\n[◀ Назад в бой](tg://resolve?domain={self.bot_username}&start=battle_back)"
+            back_link = f"tg://resolve?domain={self.bot_username}&start=battle_back"
+            return f"🎒 **Инвентарь пуст**\n\n💰 Золото: {player.gold}\n\n[◀ Назад в бой]({back_link})"
         
         lines = ["🎒 **ИНВЕНТАРЬ**\n"]
         
@@ -298,8 +313,9 @@ class BattleHandler:
             lines.append("")
         
         lines.append(f"💰 Золото: {player.gold}")
-        lines.append(f"\n[⚔️ Экипировка](tg://resolve?domain={self.bot_username}&start=show_equipment)")
-        lines.append(f"[◀ Назад в бой](tg://resolve?domain={self.bot_username}&start=battle_back)")
+        
+        back_link = f"tg://resolve?domain={self.bot_username}&start=battle_back"
+        lines.append(f"\n[◀ Назад в бой]({back_link})")
         
         return "\n".join(lines)
     
@@ -439,19 +455,14 @@ class BattleHandler:
         
         # Находим подходящую фласку по типу
         available_flasks = []
-        type_emoji = ""
         if flask_type == "health":
             available_flasks = [f for f in player.flasks if "💊" in f.emoji]
-            type_emoji = "🟢💊"
         elif flask_type == "mana":
             available_flasks = [f for f in player.flasks if "Ⓜ️" in f.emoji]
-            type_emoji = "🟢Ⓜ️"
         elif flask_type == "buff":
             available_flasks = [f for f in player.flasks if "✨" in f.emoji]
-            type_emoji = "⚪️✨"
         elif flask_type == "defense":
             available_flasks = [f for f in player.flasks if "🛡️" in f.emoji]
-            type_emoji = "🔵🛡️"
         
         if flask_index >= len(available_flasks):
             await message.answer("❌ Фласка не найдена")
@@ -585,6 +596,8 @@ class BattleHandler:
         cold_res = 0
         lightning_res = 0
         
+        back_link = f"tg://resolve?domain={self.bot_username}&start=battle_back"
+        
         text = (
             f"👤 **{player.name}** | Ур. {player.level}\n\n"
             f"**Характеристики:**\n"
@@ -604,8 +617,7 @@ class BattleHandler:
             f"⚡ Молния: {lightning_res}%\n\n"
             f"💰 Золото: {player.gold}\n"
             f"✨ Опыт: {player.exp}/{player.level * 100}\n\n"
-            f"[⚔️ Экипировка](tg://resolve?domain={self.bot_username}&start=show_equipment)\n"
-            f"[◀ Назад в бой](tg://resolve?domain={self.bot_username}&start=battle_back)"
+            f"[◀ Назад в бой]({back_link})"
         )
         
         await message.edit_text(text, parse_mode="Markdown")
@@ -653,6 +665,9 @@ class BattleHandler:
             events[current_index]["completed"] = True
             await state.update_data(dungeon_events=events)
         
+        next_link = f"tg://resolve?domain={self.bot_username}&start=next_step"
+        haven_link = f"tg://resolve?domain={self.bot_username}&start=return_haven"
+        
         text = f"🎉 **ПОБЕДА!**\n\n"
         text += f"Ты победил {enemy.emoji} {enemy.name}!\n\n"
         text += f"✨ Опыт: +{exp_gained}\n"
@@ -669,8 +684,8 @@ class BattleHandler:
             for item in loot_text:
                 text += f"  {item}\n"
         
-        text += f"\n[➡️ Идти дальше](tg://resolve?domain={self.bot_username}&start=next_step)\n"
-        text += f"[🏚️ В убежище](tg://resolve?domain={self.bot_username}&start=return_haven)"
+        text += f"\n[➡️ Идти дальше]({next_link})\n"
+        text += f"[🏚️ В убежище]({haven_link})"
         
         await state.update_data(player=player)
         
@@ -700,12 +715,14 @@ class BattleHandler:
         player.current_location = 2
         player.position_in_location = 0
         
+        haven_link = f"tg://resolve?domain={self.bot_username}&start=return_haven"
+        
         text = (
             f"💀 **ПОРАЖЕНИЕ...**\n\n"
             f"Ты очнулся в убежище, едва живой.\n"
             f"❤️ Здоровье: {player.hp}/{player.max_hp}\n"
             f"💙 Мана: {player.mana}/{player.max_mana}\n\n"
-            f"[🏚️ В убежище](tg://resolve?domain={self.bot_username}&start=return_haven)"
+            f"[🏚️ В убежище]({haven_link})"
         )
         
         await state.update_data(
@@ -731,11 +748,14 @@ class BattleHandler:
             await message.answer("❌ Ошибка состояния")
             return
         
+        next_link = f"tg://resolve?domain={self.bot_username}&start=next_step"
+        haven_link = f"tg://resolve?domain={self.bot_username}&start=return_haven"
+        
         text = (
             f"🏃 **ПОБЕГ**\n\n"
             f"Ты успешно сбежал от врага!\n\n"
-            f"[➡️ Продолжить](tg://resolve?domain={self.bot_username}&start=next_step)\n"
-            f"[🏚️ В убежище](tg://resolve?domain={self.bot_username}&start=return_haven)"
+            f"[➡️ Продолжить]({next_link})\n"
+            f"[🏚️ В убежище]({haven_link})"
         )
         
         await state.update_data(
