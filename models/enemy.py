@@ -29,6 +29,9 @@ class Enemy:
         self.hp = self.max_hp
         self.max_hp = self.hp
         
+        # Уровень монстра (вычисляемое свойство)
+        self.monster_level = self._calculate_monster_level()
+        
         # Модификаторы для редких врагов
         self.modifiers = []
         self._add_rarity_modifiers()
@@ -73,6 +76,11 @@ class Enemy:
         # Золото тоже масштабируется
         self.gold_min = int(self.base_exp * 0.5 * total_mult)
         self.gold_max = int(self.base_exp * 1.5 * total_mult)
+    
+    def _calculate_monster_level(self):
+        """Рассчитывает уровень монстра"""
+        from systems.area_level import AreaLevelSystem
+        return AreaLevelSystem.get_monster_level(self.area_level, self.rarity)
     
     def _add_rarity_modifiers(self):
         """Добавляет модификаторы в зависимости от редкости"""
@@ -428,134 +436,3 @@ class Enemy:
         hp_indicator = "🟢" if hp_percent > 66 else "🟡" if hp_percent > 33 else "🔴"
         
         return f"{self.emoji} {self.name} {self.get_rarity_color()} {hp_indicator} {self.hp}/{self.max_hp}"
-
-
-# ============= ТЕСТОВЫЕ ФУНКЦИИ =============
-
-def test_enemy_creation():
-    """Тест создания врагов"""
-    print("=" * 50)
-    print("ТЕСТ СОЗДАНИЯ ВРАГОВ")
-    print("=" * 50)
-    
-    # Создаем обычного врага
-    common_enemy = Enemy(
-        name="Гниющий узник",
-        base_hp=20,
-        damage_range=(3, 6),
-        accuracy=50,
-        defense=1,
-        base_exp=8,
-        emoji="🧟",
-        rarity="common",
-        area_level=1
-    )
-    
-    print("Обычный враг:")
-    print(common_enemy.get_stats_string())
-    print()
-    
-    # Создаем магического врага
-    magic_enemy = Enemy(
-        name="Гниющий узник-калека",
-        base_hp=35,
-        damage_range=(4, 8),
-        accuracy=55,
-        defense=2,
-        base_exp=15,
-        emoji="🧟⚡",
-        rarity="magic",
-        area_level=2
-    )
-    
-    print("Магический враг:")
-    print(magic_enemy.get_stats_string())
-    print()
-    
-    # Создаем редкого врага
-    rare_enemy = Enemy(
-        name="Тюремный надзиратель",
-        base_hp=50,
-        damage_range=(6, 12),
-        accuracy=65,
-        defense=4,
-        base_exp=25,
-        emoji="👹🔑",
-        rarity="rare",
-        area_level=3
-    )
-    
-    print("Редкий враг:")
-    print(rare_enemy.get_stats_string())
-
-
-def test_enemy_scaling():
-    """Тест масштабирования врагов"""
-    print("=" * 50)
-    print("ТЕСТ МАСШТАБИРОВАНИЯ")
-    print("=" * 50)
-    
-    base_monster = {
-        "name": "Тестовый монстр",
-        "base_hp": 30,
-        "damage": (5, 10),
-        "accuracy": 60,
-        "defense": 2,
-        "base_exp": 15,
-        "emoji": "👾"
-    }
-    
-    for area_level in [1, 3, 5, 7]:
-        print(f"\nУровень локации: {area_level}")
-        print("-" * 30)
-        
-        for rarity in ["common", "magic", "rare"]:
-            enemy = Enemy.from_monster_data(base_monster, area_level, rarity)
-            print(f"{rarity.capitalize()}: HP {enemy.max_hp}, Урон {enemy.damage_min}-{enemy.damage_max}, "
-                  f"Защита {enemy.defense}, Опыт {enemy.exp_reward}")
-
-
-def test_battle_simulation():
-    """Тест симуляции боя"""
-    print("=" * 50)
-    print("ТЕСТ БОЕВОЙ СИСТЕМЫ")
-    print("=" * 50)
-    
-    # Создаем врага
-    enemy = Enemy(
-        name="Огромный червь",
-        base_hp=40,
-        damage_range=(6, 12),
-        accuracy=60,
-        defense=3,
-        base_exp=22,
-        emoji="🪱",
-        rarity="magic",
-        area_level=3
-    )
-    
-    print("Начальное состояние:")
-    print(enemy.get_battle_string())
-    print()
-    
-    # Симулируем несколько ударов
-    total_damage = 0
-    for i in range(1, 6):
-        damage = random.randint(10, 20)
-        actual = enemy.take_damage(damage)
-        total_damage += actual
-        print(f"Удар {i}: нанесено {actual} урона")
-        print(f"  {enemy.get_hp_bar()}")
-        
-        if not enemy.is_alive():
-            print(f"\nВраг побежден! Всего урона: {total_damage}")
-            print(f"Награда: {enemy.get_exp_reward()} опыта, {enemy.get_gold_reward()} золота")
-            break
-
-
-if __name__ == "__main__":
-    test_enemy_creation()
-    print("\n")
-    test_enemy_scaling()
-    print("\n")
-    test_battle_simulation()
