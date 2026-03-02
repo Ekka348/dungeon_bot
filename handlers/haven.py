@@ -22,9 +22,9 @@ class NPCData:
             "title": "Выживший",
             "emoji": "👴",
             "dialogue": {
-                "first": "О, еще один бедолага... Добро пожаловать в наш скорбный приют.",
-                "idle": "Колодец восстанавливает силы, если что.",
-                "quest": "В тюрьме остались выжившие. Если найдешь их, приведи сюда."
+                "first": "О, еще один бедолага... Добро пожаловать в наш скорбный приют. Мы все здесь отверженные. Я Морли, сижу здесь уже... сколько лет? Потерял счет. Держи это, пригодится в пути.",
+                "idle": "Колодец восстанавливает силы, если что. Вода там... странная, но помогает.",
+                "quest": "В тюрьме остались выжившие. Если найдешь их, приведи сюда. Мы должны держаться вместе."
             },
             "has_quest": True,
             "quest_ids": ["side_quest1"]
@@ -35,8 +35,8 @@ class NPCData:
             "title": "Скупщик",
             "emoji": "🛒",
             "dialogue": {
-                "first": "Товар есть? Деньги есть? У меня есть все, что нужно выжившему.",
-                "idle": "Заходи, если что-то нужно."
+                "first": "Товар есть? Деньги есть? У меня есть все, что нужно выжившему. Нашел в катакомбах... ну, не спрашивай где.",
+                "idle": "Заходи, если что-то нужно. Или если хочешь что-то продать."
             },
             "is_merchant": True
         },
@@ -46,8 +46,8 @@ class NPCData:
             "title": "Бывший оружейник",
             "emoji": "⚒️",
             "dialogue": {
-                "first": "Ха! Живой! Я Брок, кую что могу из того хлама, что нахожу в туннелях.",
-                "idle": "У меня есть пара неплохих клинков."
+                "first": "Ха! Живой! Я Брок, кую что могу из того хлама, что нахожу в туннелях. Могу и тебе сварганить что-нибудь... за монету, конечно.",
+                "idle": "У меня есть пара неплохих клинков. Сам проверял на местных тварях."
             },
             "is_blacksmith": True
         },
@@ -57,8 +57,11 @@ class NPCData:
             "title": "Провидица",
             "emoji": "🔮",
             "dialogue": {
-                "first": "Я вижу... вижу твою судьбу! Ты пройдешь через тьму и выйдешь к свету!",
-                "idle": "Глубины зовут... слышишь? Они шепчут..."
+                "first": "Я вижу... вижу твою судьбу! Ты пройдешь через тьму и выйдешь к свету! Но сначала... принеси мне кое-что из туннелей. Я заплачу.",
+                "idle": "Глубины зовут... слышишь? Они шепчут...",
+                "quest1": "Мой амулет... я потеряла его в Костях катакомб. Без него я не могу видеть будущее. Найди его, прошу.",
+                "quest2": "Надзиратель тюрьмы мучает души заключенных. Освободи их, убей его.",
+                "quest3": "Я видела видение - выход через Грот сирен. Убей древнего спрута и выйди на свободу."
             },
             "has_quest": True,
             "quest_ids": ["quest1", "quest2", "quest3"]
@@ -143,19 +146,6 @@ class HavenHandler:
         async def leave_haven(callback: types.CallbackQuery, state: FSMContext):
             await self.leave_haven(callback, state)
     
-    async def enter_haven_command(self, message: types.Message, state: FSMContext):
-        """Обрабатывает команду return_haven из гиперссылки"""
-        # Создаем искусственный callback для переиспользования логики
-        class DummyCallback:
-            def __init__(self, message):
-                self.message = message
-                self.bot = message.bot
-            
-            async def answer(self):
-                pass
-        
-        await self.enter_haven(DummyCallback(message), state)
-    
     async def enter_haven(self, callback: types.CallbackQuery, state: FSMContext):
         """Вход в убежище"""
         # Получаем username бота
@@ -175,15 +165,32 @@ class HavenHandler:
             await callback.answer("Ошибка: убежище не найдено")
             return
         
+        # Проверяем, первый ли раз игрок в убежище
+        is_first_visit = 2 not in player.visited_locations
+        
         player.current_location = haven["id"]
         player.position_in_location = 0
+        player.visited_locations.add(2)
+        
+        # Если первый визит - выдаем стартовые предметы
+        welcome_message = ""
+        if is_first_visit:
+            items_given = player.give_starter_items()
+            welcome_message = (
+                f"\n\n**Старик Морли:** \"Добро пожаловать в убежище, странник! "
+                f"Ты выглядишь потерянным. Держи это, пригодится в пути.\"\n\n"
+                f"**Получено:**\n"
+            )
+            for item in items_given:
+                welcome_message += f"• {item}\n"
         
         await state.update_data(player=player, dungeon_events=[])
         
-        await self.show_haven(callback.message, state)
+        # Показываем убежище с приветствием
+        await self.show_haven(callback.message, state, welcome_message if is_first_visit else "")
         await callback.answer()
     
-    async def show_haven(self, message: types.Message, state: FSMContext):
+    async def show_haven(self, message: types.Message, state: FSMContext, welcome_message: str = ""):
         """Показывает убежище"""
         data = await state.get_data()
         player = data['player']
@@ -198,7 +205,8 @@ class HavenHandler:
         
         text = (
             f"🏚️ **{haven['name']}**\n\n"
-            f"{haven['description']}\n\n"
+            f"{haven['description']}\n"
+            f"{welcome_message}\n\n"
             f"**Обитатели убежища:**\n"
             f"👴 Старик Морли - бывалый выживший\n"
             f"🛒 Торговец Грег - продает всякую всячину\n"
