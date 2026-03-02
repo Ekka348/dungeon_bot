@@ -17,6 +17,9 @@ class Player:
         self.visited_locations = {1}
         self.talked_to_npcs = set()
         
+        # Флаги получения базовых предметов
+        self.has_portal = False  # Свиток портала (получаем в убежище)
+        
         # Базовые статы
         self.hp = 150
         self.max_hp = 150
@@ -54,11 +57,10 @@ class Player:
             ItemType.AMULET: None
         }
         
-        # Фласки
+        # Фласки - в начале игры пусто
         self.flasks = []
         self.max_flasks = 3
         self.active_flask = 0
-        self._init_starter_flask()
         
         # Квесты
         self.quests = {}
@@ -75,10 +77,27 @@ class Player:
         self.buffs = []
         self.debuffs = []
     
-    def _init_starter_flask(self):
-        """Создает стартовую фласку"""
+    # ============= МЕТОДЫ ДЛЯ НАЧАЛЬНЫХ ПРЕДМЕТОВ =============
+    
+    def give_starter_items(self):
+        """Выдает стартовые предметы после первого посещения убежища"""
         from models.item import Flask
-        self.flasks.append(Flask("small_life"))
+        
+        # Даем фласку здоровья
+        health_flask = Flask("small_life")
+        # Меняем эмодзи для фласки здоровья
+        health_flask.emoji = "🟢💊🧪"
+        self.flasks.append(health_flask)
+        
+        # Даем фласку маны
+        mana_flask = Flask("small_mana")
+        mana_flask.emoji = "🟢Ⓜ️🧪"
+        self.flasks.append(mana_flask)
+        
+        # Даем свиток портала
+        self.has_portal = True
+        
+        return ["🟢💊🧪 Фласка здоровья", "🟢Ⓜ️🧪 Фласка маны", "🌀 Свиток портала"]
     
     # ============= МЕТОДЫ ИНВЕНТАРЯ =============
     
@@ -174,7 +193,7 @@ class Player:
             self.heal(heal)
             if flask.current_uses == 0:
                 self._switch_to_next_flask()
-            return heal, f"Использована {flask.name}"
+            return heal, f"🧪 Использована {flask.name}"
         else:
             if self._switch_to_next_flask():
                 return 0, "Фласка пуста, переключено на другую"
@@ -397,6 +416,8 @@ class Player:
         
         current_location = AreaRegistry.get_location_name(self.current_location)
         
+        portal_status = "Есть" if self.has_portal else "Нет"
+        
         return (
             f"👤 **{self.name}** | Ур. {self.level}\n"
             f"📍 {current_location}\n"
@@ -406,6 +427,7 @@ class Player:
             f"🛡️ Защита: {self.defense} | 🎯 Точность: {self.accuracy}%\n"
             f"🔥 Крит: {self.crit_chance}% x{self.crit_multiplier}%\n"
             f"💪 {self.strength} | 🏹 {self.dexterity} | 📚 {self.intelligence}\n"
-            f"💰 {self.gold} золота | ✨ {self.exp}/{self.level * 100}\n\n"
+            f"💰 {self.gold} золота | ✨ {self.exp}/{self.level * 100}\n"
+            f"🌀 Порталы: {portal_status}\n\n"
             f"🧪 **Фласки:**\n{flask_text}"
         )
