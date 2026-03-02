@@ -467,7 +467,7 @@ class UniqueWeapon(MeleeWeapon):
 # ============= КЛАСС ФЛАСКИ =============
 
 class Flask(Item):
-    """Класс для фласок здоровья"""
+    """Класс для фласок"""
     
     def __init__(self, flask_type):
         flask_data = FLASKS[flask_type]
@@ -494,11 +494,14 @@ class Flask(Item):
     def _get_base_stats_string(self):
         """Возвращает строку с характеристиками фласки"""
         heal_emoji = "💚" if self.flask_data["heal"] < 50 else "💛" if self.flask_data["heal"] < 100 else "❤️"
+        if "mana" in self.flask_type:
+            heal_emoji = "💙"
+        
         charges_emoji = "🔋" * self.current_uses + "⚪" * (self.flask_data["uses"] - self.current_uses)
         
         return (
             f"**Параметры:**\n"
-            f"  {heal_emoji} Лечение: +{self.flask_data['heal']} HP\n"
+            f"  {heal_emoji} Восполнение: +{self.flask_data['heal']}\n"
             f"  {charges_emoji} Заряды: {self.current_uses}/{self.flask_data['uses']}"
         )
     
@@ -645,11 +648,13 @@ def generate_flask():
     """Генерирует случайную фласку"""
     roll = random.random() * 100
     
-    if roll < 60:
+    if roll < 40:
         flask_type = "small_life"
+    elif roll < 70:
+        flask_type = "small_mana"
     elif roll < 85:
         flask_type = "medium_life"
-    elif roll < 97:
+    elif roll < 95:
         flask_type = "large_life"
     else:
         flask_type = "divine_life"
@@ -685,9 +690,16 @@ def test_item_generation():
     unique = UniqueWeapon("soul_ripper", 20)
     print(unique.get_detailed_info())
     
-    # Фласка
-    print("\n🧪 Фласка:")
-    flask = generate_flask()
+    # Фласка здоровья
+    print("\n🧪 Фласка здоровья:")
+    flask = Flask("small_life")
+    flask.emoji = "🟢💊🧪"
+    print(flask.get_detailed_info())
+    
+    # Фласка маны
+    print("\n💙 Фласка маны:")
+    flask = Flask("small_mana")
+    flask.emoji = "🟢Ⓜ️🧪"
     print(flask.get_detailed_info())
 
 
