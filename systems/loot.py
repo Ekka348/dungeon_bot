@@ -192,7 +192,7 @@ class LootSystem:
             return self._generate_weapon(item_level, enemy_rarity)
         elif item_type_roll < 0.8:  # 20% фласка
             return self._generate_flask(item_level, enemy_rarity)
-        else:  # 20% другое (пока просто золото)
+        else:  # 20% другое (пока просто None)
             return None
     
     def _calculate_item_level(self, area_level, monster_level, rarity):
@@ -267,7 +267,6 @@ class LootSystem:
         
         # Предметы
         for _ in range(quantity):
-            # Шанс на предмет
             if random.random() < 0.4:  # 40% шанс на предмет в сундуке
                 item_level = area_level + random.randint(1, 3)
                 
