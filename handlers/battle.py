@@ -21,6 +21,17 @@ from systems.progression import ProgressionSystem
 class BattleUI:
     """Класс для формирования интерфейса боя с гиперссылками"""
     
+    # Символы для рамок
+    TOP_LEFT = "┌"
+    TOP_RIGHT = "┐"
+    BOTTOM_LEFT = "└"
+    BOTTOM_RIGHT = "┘"
+    HORIZONTAL = "─"
+    VERTICAL = "│"
+    CROSS = "┼"
+    TOP_MID = "┬"
+    BOTTOM_MID = "┴"
+    
     @classmethod
     def create_battle_screen(cls, player, enemy, combat, battle_log, turn, bot_username):
         """Создает полный экран боя с гиперссылками"""
@@ -44,13 +55,8 @@ class BattleUI:
         lines.append(f"{enemy_name} ❤️ {enemy_hp_bar} {enemy.hp}/{enemy.max_hp}")
         lines.append("")
         
-        # Навигационные иконки - используем простой текст
-        lines.append("🎒 👤 🌀")
-        lines.append("_" * 65)
-        lines.append("")
-        
-        # Панель с характеристиками и действиями
-        lines.extend(cls._create_action_panel(player))
+        # Нижняя панель с интерфейсом
+        lines.append(cls._create_bottom_panel(player, bot_username))
         
         return "\n".join(lines)
     
@@ -67,17 +73,42 @@ class BattleUI:
         return "█" * filled + "░" * (length - filled)
     
     @classmethod
-    def _create_action_panel(cls, player):
-        """Создает панель с характеристиками и действиями"""
+    def _create_bottom_panel(cls, player, bot_username):
+        """Создает нижнюю панель с интерфейсом"""
+        
         lines = []
+        
+        # Навигационные иконки
+        nav_line = f"🎒 👤 🌀"
+        lines.append(nav_line)
+        lines.append("_" * 65)
+        
+        # Верхняя граница
+        top_line = f"{cls.TOP_LEFT}{cls.HORIZONTAL * 24}{cls.TOP_MID}{cls.HORIZONTAL * 24}{cls.TOP_MID}{cls.HORIZONTAL * 12}{cls.TOP_RIGHT}"
+        lines.append(top_line)
         
         # Полоски здоровья и маны
         player_hp_bar = cls._create_hp_bar(player.hp, player.max_hp, 6)
         player_mana_bar = cls._create_bar(player.mana, player.max_mana, 6)
         
-        # Характеристики игрока
-        lines.append(f"❤️ {player_hp_bar} {player.hp}/{player.max_hp}    Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}    ⚔️")
-        lines.append("")
+        # Первая строка - здоровье, мана и атака
+        first_row = (
+            f"{cls.VERTICAL}  ❤️ {player_hp_bar} {player.hp}/{player.max_hp}  {cls.VERTICAL}"
+            f"      Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}     {cls.VERTICAL}"
+            f"         ⚔️       {cls.VERTICAL}"
+        )
+        lines.append(first_row)
+        
+        # Разделитель
+        separator = f"{cls.CROSS}{cls.HORIZONTAL * 24}{cls.CROSS}{cls.HORIZONTAL * 24}{cls.CROSS}{cls.HORIZONTAL * 12}{cls.CROSS}"
+        lines.append(separator)
+        
+        # Пустая строка
+        empty_row = f"{cls.VERTICAL}{' ' * 24}{cls.VERTICAL}{' ' * 24}{cls.VERTICAL}{' ' * 12}{cls.VERTICAL}"
+        lines.append(empty_row)
+        
+        # Разделитель
+        lines.append(separator)
         
         # Находим фласки по типам
         health_flasks = [f for f in player.flasks if "💊" in f.emoji or "🧪" in f.emoji]
@@ -86,23 +117,31 @@ class BattleUI:
         defense_flasks = [f for f in player.flasks if "🛡️" in f.emoji]
         
         # Первая строка фласок
-        health_text = ""
+        health_text1 = ""
         if len(health_flasks) > 0:
             flask = health_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            health_text = f"🟢💊🧪 [{flask_bar}]"
+            health_text1 = f"🟢💊🧪 [{flask_bar}]"
         else:
-            health_text = "🟢💊🧪 [   ]"
+            health_text1 = "🟢💊🧪 [   ]"
         
-        mana_text = ""
+        mana_text1 = ""
         if len(mana_flasks) > 0:
             flask = mana_flasks[0]
             flask_bar = cls._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            mana_text = f"🟢Ⓜ️🧪 [{flask_bar}]"
+            mana_text1 = f"🟢Ⓜ️🧪 [{flask_bar}]"
         else:
-            mana_text = "🟢Ⓜ️🧪 [   ]"
+            mana_text1 = "🟢Ⓜ️🧪 [   ]"
         
-        lines.append(f"{health_text}    {mana_text}    💪")
+        flask_row1 = (
+            f"{cls.VERTICAL}      {health_text1}         {cls.VERTICAL}"
+            f"         {mana_text1}             {cls.VERTICAL}"
+            f"        💪       {cls.VERTICAL}"
+        )
+        lines.append(flask_row1)
+        
+        # Разделитель
+        lines.append(separator)
         
         # Вторая строка фласок
         health_text2 = ""
@@ -121,7 +160,15 @@ class BattleUI:
         else:
             mana_text2 = "🟢Ⓜ️🧪 [   ]"
         
-        lines.append(f"{health_text2}    {mana_text2}    ⚡️")
+        flask_row2 = (
+            f"{cls.VERTICAL}      {health_text2}         {cls.VERTICAL}"
+            f"         {mana_text2}             {cls.VERTICAL}"
+            f"        ⚡️       {cls.VERTICAL}"
+        )
+        lines.append(flask_row2)
+        
+        # Разделитель
+        lines.append(separator)
         
         # Третья строка - бафф и защита
         buff_text = ""
@@ -140,9 +187,18 @@ class BattleUI:
         else:
             defense_text = "🔵🛡️🧪 [   ]"
         
-        lines.append(f"{buff_text}    {defense_text}")
+        flask_row3 = (
+            f"{cls.VERTICAL}     {buff_text}         {cls.VERTICAL}"
+            f"                                                      {cls.VERTICAL}"
+            f"{' ' * 12}{cls.VERTICAL}"
+        )
+        lines.append(flask_row3)
         
-        return lines
+        # Нижняя граница
+        bottom_line = f"{cls.BOTTOM_LEFT}{cls.HORIZONTAL * 24}{cls.BOTTOM_MID}{cls.HORIZONTAL * 24}{cls.BOTTOM_MID}{cls.HORIZONTAL * 12}{cls.BOTTOM_RIGHT}"
+        lines.append(bottom_line)
+        
+        return "\n".join(lines)
 
 
 # ============= ОСНОВНОЙ ХЕНДЛЕР БОЯ =============
@@ -248,7 +304,6 @@ class BattleHandler:
         
         text = self._format_inventory(player)
         
-        # Пытаемся отредактировать сообщение, если не получается - отправляем новое
         try:
             await message.edit_text(text, parse_mode="Markdown")
         except:
@@ -594,11 +649,6 @@ class BattleHandler:
             await message.answer("❌ Игрок не найден")
             return
         
-        # Получаем сопротивление из экипировки (заглушка)
-        fire_res = 0
-        cold_res = 0
-        lightning_res = 0
-        
         back_link = f"tg://resolve?domain={self.bot_username}&start=battle_back"
         
         text = (
@@ -614,10 +664,6 @@ class BattleHandler:
             f"🛡️ Защита: {player.defense}\n"
             f"🎯 Точность: {player.accuracy}%\n"
             f"🔥 Крит: {player.crit_chance}% x{player.crit_multiplier}%\n\n"
-            f"**Сопротивления:**\n"
-            f"🔥 Огонь: {fire_res}%\n"
-            f"❄️ Холод: {cold_res}%\n"
-            f"⚡ Молния: {lightning_res}%\n\n"
             f"💰 Золото: {player.gold}\n"
             f"✨ Опыт: {player.exp}/{player.level * 100}\n\n"
             f"[◀ Назад в бой]({back_link})"
