@@ -10,7 +10,7 @@ from models.enemy import Enemy
 from models.item import Item, MeleeWeapon, Flask
 from data.act1 import Act1
 from systems.combat import CombatSystem, CombatAction, ActionResult
-from systems.area_level import AreaLevelSystem, DifficultyCalculator
+from systems.area_level import Area, DifficultyCalculator, MonsterLevelSystem
 from systems.loot import LootSystem
 from systems.progression import ProgressionSystem
 from utils.keyboards import get_battle_action_keyboard, get_battle_result_keyboard
@@ -21,9 +21,10 @@ from utils.helpers import format_battle_view, format_hp_bar
 class BattleHandler:
     """Хендлер для управления боем"""
     
-    def __init__(self, bot, dp):
+    def __init__(self, bot, dp, handlers_container):
         self.bot = bot
         self.dp = dp
+        self.handlers = handlers_container
         self.loot_system = LootSystem()
         self._register_handlers()
     
@@ -33,10 +34,6 @@ class BattleHandler:
         @self.dp.callback_query(lambda c: c.data == "start_battle")
         async def start_battle(callback: types.CallbackQuery, state: FSMContext):
             await self.start_battle(callback, state)
-        
-        @self.dp.callback_query(lambda c: c.data.startswith("battle_action_"))
-        async def battle_action(callback: types.CallbackQuery, state: FSMContext):
-            await self.process_battle_action(callback, state)
         
         @self.dp.callback_query(lambda c: c.data == "battle_attack")
         async def battle_attack(callback: types.CallbackQuery, state: FSMContext):
@@ -70,10 +67,6 @@ class BattleHandler:
         async def battle_continue(callback: types.CallbackQuery, state: FSMContext):
             await self.continue_battle(callback, state)
         
-        @self.dp.callback_query(lambda c: c.data == "battle_retry")
-        async def battle_retry(callback: types.CallbackQuery, state: FSMContext):
-            await self.retry_battle(callback, state)
-        
         @self.dp.callback_query(lambda c: c.data == "battle_log")
         async def battle_log(callback: types.CallbackQuery, state: FSMContext):
             await self.show_battle_log(callback, state)
@@ -99,7 +92,9 @@ class BattleHandler:
         monster_data = current_event["monster"]
         
         # Получаем уровень локации
-        area_level = AreaLevelSystem.get_area_level(player.current_location)
+        from systems.area_level import Area
+        area = Area(player.current_location)
+        area_level = area.current_level
         
         # Создаем врага
         enemy = Enemy.from_monster_data(
@@ -131,7 +126,6 @@ class BattleHandler:
         turn = data.get('battle_turn', 1)
         
         if not combat:
-            # Создаем новую боевую систему, если ее нет
             combat = CombatSystem(player, enemy)
             await state.update_data(combat_system=combat)
         
@@ -156,14 +150,16 @@ class BattleHandler:
         keyboard = get_battle_action_keyboard(player)
         
         # Проверяем наличие изображения
-        if enemy.image_path and os.path.exists(enemy.image_path):
+        if hasattr(enemy, 'image_path') and enemy.image_path and os.path.exists(enemy.image_path):
             photo = FSInputFile(enemy.image_path)
             
-            # Проверяем тип сообщения
             if hasattr(message, 'photo') and message.photo:
                 await message.edit_caption(caption=text, reply_markup=keyboard)
             else:
-                await message.delete()
+                try:
+                    await message.delete()
+                except:
+                    pass
                 await message.answer_photo(photo=photo, caption=text, reply_markup=keyboard)
         else:
             # Текстовая версия
@@ -231,7 +227,7 @@ class BattleHandler:
         """Показывает результат хода"""
         data = await state.get_data()
         enemy = data['battle_enemy']
-        turn = data.get('battle_turn', 1) - 1  # Текущий ход
+        turn = data.get('battle_turn', 1) - 1
         
         # Формируем текст результата
         text = f"⚔️ **ХОД {turn}**\n\n"
@@ -241,11 +237,14 @@ class BattleHandler:
         keyboard = get_battle_result_keyboard()
         
         # Проверяем наличие изображения
-        if enemy.image_path and os.path.exists(enemy.image_path):
+        if hasattr(enemy, 'image_path') and enemy.image_path and os.path.exists(enemy.image_path):
             if hasattr(message, 'photo') and message.photo:
                 await message.edit_caption(caption=text, reply_markup=keyboard)
             else:
-                await message.delete()
+                try:
+                    await message.delete()
+                except:
+                    pass
                 photo = FSInputFile(enemy.image_path)
                 await message.answer_photo(photo=photo, caption=text, reply_markup=keyboard)
         else:
@@ -280,11 +279,14 @@ class BattleHandler:
         player.add_kill(enemy.name)
         
         # Генерируем лут
-        area_level = AreaLevelSystem.get_area_level(player.current_location)
+        from systems.area_level import Area
+        area = Area(player.current_location)
+        area_level = area.current_level
+        
         loot = self.loot_system.generate_loot(
             enemy.rarity, 
             area_level, 
-            enemy.area_level,  # Используем area_level
+            enemy.area_level,
             player.current_location
         )
         
@@ -302,6 +304,16 @@ class BattleHandler:
             events[current_index]["completed"] = True
             await state.update_data(dungeon_events=events)
         
+        # Проверяем прогресс квестов
+        if 'quest_manager' in data:
+            await self.handlers.quest.check_quest_progress(
+                state, "kill_monsters", enemy.name, 1, player.current_location
+            )
+            if enemy.rarity == "boss":
+                await self.handlers.quest.check_quest_progress(
+                    state, "kill_boss", enemy.name, 1, player.current_location
+                )
+        
         # Формируем текст победы
         text = f"🎉 **ПОБЕДА!**\n\n"
         text += f"Ты победил {enemy.emoji} {enemy.name}!\n\n"
@@ -318,10 +330,6 @@ class BattleHandler:
             text += f"\n**Добыча:**\n"
             for item in loot_text:
                 text += f"  {item}\n"
-        
-        # Краткая статистика боя
-        if combat:
-            text += f"\n{combat.get_summary()}\n"
         
         text += f"\n**Что дальше?**"
         
@@ -360,7 +368,7 @@ class BattleHandler:
             flask.current_uses = max(1, flask.flask_data["uses"] // 2)
         
         # Телепорт в убежище
-        player.current_location = 2  # Убежище
+        player.current_location = 2
         player.position_in_location = 0
         
         text = (
@@ -424,18 +432,6 @@ class BattleHandler:
         
         await message.answer(text, reply_markup=keyboard)
     
-    async def retry_battle(self, callback: types.CallbackQuery, state: FSMContext):
-        """Повторяет бой (после поражения)"""
-        data = await state.get_data()
-        
-        # Восстанавливаем врага из сохраненных данных
-        if 'last_enemy' in data:
-            enemy_data = data['last_enemy']
-            # Здесь нужно восстановить врага
-            # Пока просто начинаем заново
-        
-        await self.start_battle(callback, state)
-    
     async def show_battle_log(self, callback: types.CallbackQuery, state: FSMContext):
         """Показывает лог боя"""
         data = await state.get_data()
@@ -447,9 +443,9 @@ class BattleHandler:
         
         text = "📋 **ЛОГ БОЯ**\n\n"
         
-        for entry in battle_log[-5:]:  # Последние 5 ходов
+        for entry in battle_log[-5:]:
             text += f"**Ход {entry['turn']}:**\n"
-            for msg in entry['result'][:3]:  # Первые 3 сообщения
+            for msg in entry['result'][:3]:
                 text += f"  {msg}\n"
             text += "\n"
         
@@ -459,112 +455,3 @@ class BattleHandler:
         
         await callback.message.edit_text(text, reply_markup=keyboard)
         await callback.answer()
-    
-    async def process_battle_action(self, callback: types.CallbackQuery, state: FSMContext):
-        """Обрабатывает действие из callback data"""
-        action = callback.data.split('_')[2]
-        
-        action_map = {
-            "attack": CombatAction.ATTACK,
-            "heavy": CombatAction.HEAVY_ATTACK,
-            "fast": CombatAction.FAST_ATTACK,
-            "defend": CombatAction.DEFEND,
-            "dodge": CombatAction.DODGE,
-            "flask": CombatAction.USE_FLASK,
-            "run": CombatAction.RUN
-        }
-        
-        combat_action = action_map.get(action)
-        if combat_action:
-            await self.process_action(callback, state, combat_action)
-        else:
-            await callback.answer("Неизвестное действие")
-
-
-# ============= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =============
-
-async def start_battle(callback: types.CallbackQuery, state: FSMContext):
-    """Внешняя функция для начала боя"""
-    handler = BattleHandler(callback.bot, None)  # dp не нужен для одного вызова
-    await handler.start_battle(callback, state)
-
-
-async def process_battle_action(callback: types.CallbackQuery, state: FSMContext, action: str):
-    """Внешняя функция для обработки действия"""
-    handler = BattleHandler(callback.bot, None)
-    
-    action_map = {
-        "attack": CombatAction.ATTACK,
-        "heavy": CombatAction.HEAVY_ATTACK,
-        "fast": CombatAction.FAST_ATTACK,
-        "defend": CombatAction.DEFEND,
-        "dodge": CombatAction.DODGE,
-        "flask": CombatAction.USE_FLASK,
-        "run": CombatAction.RUN
-    }
-    
-    combat_action = action_map.get(action)
-    if combat_action:
-        await handler.process_action(callback, state, combat_action)
-    else:
-        await callback.answer("Неизвестное действие")
-
-
-# ============= ТЕСТОВЫЕ ФУНКЦИИ =============
-
-async def test_battle_flow():
-    """Тест для проверки потока боя"""
-    print("=" * 50)
-    print("ТЕСТ ПОТОКА БОЯ")
-    print("=" * 50)
-    
-    # Создаем тестового игрока
-    player = Player()
-    
-    # Создаем тестового врага
-    monster_data = {
-        "name": "Тестовый монстр",
-        "base_hp": 50,
-        "damage": (5, 10),
-        "accuracy": 70,
-        "defense": 3,
-        "base_exp": 25,
-        "emoji": "👾",
-        "description": "Монстр для тестов"
-    }
-    
-    enemy = Enemy.from_monster_data(monster_data, 1, "common")
-    
-    print(f"\n🔹 Начало боя:")
-    print(f"Игрок: {player.hp}/{player.max_hp} HP")
-    print(f"Враг: {enemy.hp}/{enemy.max_hp} HP")
-    
-    # Создаем боевую систему
-    combat = CombatSystem(player, enemy)
-    
-    # Симулируем несколько ходов
-    actions = [CombatAction.ATTACK, CombatAction.HEAVY_ATTACK, 
-               CombatAction.FAST_ATTACK, CombatAction.DEFEND]
-    
-    turn = 1
-    while not combat.is_player_dead() and not combat.is_enemy_dead() and turn <= 10:
-        print(f"\n🔸 ХОД {turn}")
-        print("-" * 30)
-        
-        action = random.choice(actions)
-        print(f"Действие: {action.value}")
-        
-        result = combat.process_turn(action)
-        print(result.get_text())
-        
-        turn += 1
-    
-    if combat.is_enemy_dead():
-        print(f"\n🎉 Победа за {turn-1} ходов!")
-        print(f"Награда: {enemy.get_exp_reward()} опыта, {enemy.get_gold_reward()} золота")
-    else:
-        print(f"\n💀 Поражение...")
-
-
-if __name__ == "__main__":
-    asyncio.run(test_battle_flow())
