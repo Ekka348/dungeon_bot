@@ -20,6 +20,8 @@ class Player:
         # Базовые статы
         self.hp = 150
         self.max_hp = 150
+        self.mana = 100
+        self.max_mana = 100
         self.defense = 5
         self.base_damage = 15
         self.accuracy = 85
@@ -136,6 +138,18 @@ class Player:
         self.hp = min(self.max_hp, self.hp + amount)
         return self.hp
     
+    def use_mana(self, amount):
+        """Использовать ману"""
+        if self.mana >= amount:
+            self.mana -= amount
+            return True
+        return False
+    
+    def restore_mana(self, amount):
+        """Восстановить ману"""
+        self.mana = min(self.max_mana, self.mana + amount)
+        return self.mana
+    
     def add_flask_charge(self):
         """Восстанавливает заряды фласок"""
         charges_added = 0
@@ -145,12 +159,15 @@ class Player:
                 charges_added += 1
         return charges_added
     
-    def use_flask(self):
-        """Использовать активную фласку"""
-        if not self.flasks or self.active_flask >= len(self.flasks):
+    def use_flask(self, flask_index=None):
+        """Использовать фласку"""
+        if flask_index is None:
+            flask_index = self.active_flask
+            
+        if not self.flasks or flask_index >= len(self.flasks):
             return 0, "Нет фласок"
         
-        flask = self.flasks[self.active_flask]
+        flask = self.flasks[flask_index]
         heal = flask.use()
         
         if heal > 0:
@@ -261,6 +278,8 @@ class Player:
         self.level += 1
         self.max_hp += 10
         self.hp = self.max_hp
+        self.max_mana += 10
+        self.mana = self.max_mana
         self.strength += 2
         self.dexterity += 2
         self.intelligence += 2
@@ -355,6 +374,7 @@ class Player:
         self.current_location = haven_id
         self.position_in_location = 0
         self.hp = self.max_hp // 2
+        self.mana = self.max_mana // 2
         
         for flask in self.flasks:
             flask.current_uses = max(1, flask.flask_data["uses"] // 2)
@@ -381,6 +401,7 @@ class Player:
             f"👤 **{self.name}** | Ур. {self.level}\n"
             f"📍 {current_location}\n"
             f"❤️ {self.hp}/{self.max_hp} HP\n"
+            f"💙 {self.mana}/{self.max_mana} MP\n"
             f"⚔️ {weapon_info}\n"
             f"🛡️ Защита: {self.defense} | 🎯 Точность: {self.accuracy}%\n"
             f"🔥 Крит: {self.crit_chance}% x{self.crit_multiplier}%\n"
