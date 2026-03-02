@@ -38,7 +38,7 @@ class BattleUI:
         lines.append("")
         
         # Информация о враге
-        enemy_hp_bar = cls._create_hp_bar(enemy.hp, enemy.max_hp, 10)
+        enemy_hp_bar = cls._create_hp_bar(enemy.hp, enemy.max_hp, 8)  # Уменьшил до 8
         enemy_rarity = enemy.get_rarity_color()
         enemy_name = f"{enemy_rarity} {enemy.emoji} {enemy.name}"
         lines.append(f"{enemy_name} ❤️ {enemy_hp_bar} {enemy.hp}/{enemy.max_hp}")
@@ -70,9 +70,9 @@ class BattleKeyboard:
         
         buttons = []
         
-        # Полоски здоровья и маны (неактивные кнопки)
-        player_hp_bar = BattleUI._create_hp_bar(player.hp, player.max_hp, 6)
-        player_mana_bar = BattleUI._create_bar(player.mana, player.max_mana, 6)
+        # Полоски здоровья и маны (уменьшил длину до 5)
+        player_hp_bar = BattleUI._create_hp_bar(player.hp, player.max_hp, 5)
+        player_mana_bar = BattleUI._create_bar(player.mana, player.max_mana, 5)
         
         hp_text = f"❤️ {player_hp_bar} {player.hp}/{player.max_hp}"
         mana_text = f"Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}"
@@ -80,7 +80,7 @@ class BattleKeyboard:
         # Первая строка - здоровье и мана (неактивные кнопки)
         buttons.append([
             InlineKeyboardButton(text=hp_text, callback_data="ignore"),
-            InlineKeyboardButton(text="➖", callback_data="ignore"),
+            InlineKeyboardButton(text="⬜", callback_data="ignore"),  # Пустой разделитель
             InlineKeyboardButton(text=mana_text, callback_data="ignore")
         ])
         
@@ -104,9 +104,9 @@ class BattleKeyboard:
             mana_text1 = f"🟢Ⓜ️🧪 [{flask_bar}]"
         
         buttons.append([
-            InlineKeyboardButton(text=health_text1, callback_data="battle_flask_health_0" if len(health_flasks) > 0 else "ignore"),
-            InlineKeyboardButton(text="Атака оружием ⚔️", callback_data="battle_attack"),
-            InlineKeyboardButton(text=mana_text1, callback_data="battle_flask_mana_0" if len(mana_flasks) > 0 else "ignore")
+            InlineKeyboardButton(text=health_text1, callback_data=f"battle_flask_health_0" if len(health_flasks) > 0 else "ignore"),
+            InlineKeyboardButton(text="Атака ⚔️", callback_data="battle_attack"),
+            InlineKeyboardButton(text=mana_text1, callback_data=f"battle_flask_mana_0" if len(mana_flasks) > 0 else "ignore")
         ])
         
         # Вторая строка с фласками
@@ -123,9 +123,9 @@ class BattleKeyboard:
             mana_text2 = f"🟢Ⓜ️🧪 [{flask_bar}]"
         
         buttons.append([
-            InlineKeyboardButton(text=health_text2, callback_data="battle_flask_health_1" if len(health_flasks) > 1 else "ignore"),
-            InlineKeyboardButton(text="Мощная атака 💪", callback_data="battle_heavy"),
-            InlineKeyboardButton(text=mana_text2, callback_data="battle_flask_mana_1" if len(mana_flasks) > 1 else "ignore")
+            InlineKeyboardButton(text=health_text2, callback_data=f"battle_flask_health_1" if len(health_flasks) > 1 else "ignore"),
+            InlineKeyboardButton(text="Мощная 💪", callback_data="battle_heavy"),
+            InlineKeyboardButton(text=mana_text2, callback_data=f"battle_flask_mana_1" if len(mana_flasks) > 1 else "ignore")
         ])
         
         # Третья строка - бафф, защита и умение
@@ -142,9 +142,9 @@ class BattleKeyboard:
             defense_text = f"🔵🛡️🧪 [{flask_bar}]"
         
         buttons.append([
-            InlineKeyboardButton(text=buff_text, callback_data="battle_flask_buff_0" if len(buff_flasks) > 0 else "ignore"),
+            InlineKeyboardButton(text=buff_text, callback_data=f"battle_flask_buff_0" if len(buff_flasks) > 0 else "ignore"),
             InlineKeyboardButton(text="Умение ⚡️", callback_data="battle_fast"),
-            InlineKeyboardButton(text=defense_text, callback_data="battle_flask_defense_0" if len(defense_flasks) > 0 else "ignore")
+            InlineKeyboardButton(text=defense_text, callback_data=f"battle_flask_defense_0" if len(defense_flasks) > 0 else "ignore")
         ])
         
         # Четвертая строка - навигация
@@ -159,7 +159,7 @@ class BattleKeyboard:
     @classmethod
     def get_empty_button(cls):
         """Создает пустую неактивную кнопку"""
-        return InlineKeyboardButton(text="➖", callback_data="ignore")
+        return InlineKeyboardButton(text="⬜", callback_data="ignore")
 
 
 # ============= ОСНОВНОЙ ХЕНДЛЕР БОЯ =============
@@ -198,6 +198,11 @@ class BattleHandler:
         async def battle_run(callback: types.CallbackQuery, state: FSMContext):
             await self.process_action(callback, state, CombatAction.RUN)
         
+        @self.dp.callback_query(lambda c: c.data == "battle_back")
+        async def battle_back(callback: types.CallbackQuery, state: FSMContext):
+            await self.show_battle(callback.message, state)
+            await callback.answer()
+        
         @self.dp.callback_query(lambda c: c.data.startswith("battle_flask_health_"))
         async def battle_flask_health(callback: types.CallbackQuery, state: FSMContext):
             flask_index = int(callback.data.split('_')[3])
@@ -229,6 +234,14 @@ class BattleHandler:
         @self.dp.callback_query(lambda c: c.data == "start_battle")
         async def start_battle(callback: types.CallbackQuery, state: FSMContext):
             await self.start_battle(callback, state)
+        
+        @self.dp.callback_query(lambda c: c.data == "next_step")
+        async def next_step(callback: types.CallbackQuery, state: FSMContext):
+            await self.handlers.dungeon.next_step(callback, state)
+        
+        @self.dp.callback_query(lambda c: c.data == "return_to_haven")
+        async def return_to_haven(callback: types.CallbackQuery, state: FSMContext):
+            await self.handlers.haven.enter_haven(callback, state)
     
     async def show_inventory(self, callback: types.CallbackQuery, state: FSMContext):
         """Показывает инвентарь"""
@@ -251,7 +264,7 @@ class BattleHandler:
     def _format_inventory(self, player):
         """Форматирует инвентарь для отображения"""
         if not player.inventory and not player.flasks:
-            return "🎒 **Инвентарь пуст**\n\n💰 Золото: {player.gold}"
+            return f"🎒 **Инвентарь пуст**\n\n💰 Золото: {player.gold}"
         
         lines = ["🎒 **ИНВЕНТАРЬ**\n"]
         
