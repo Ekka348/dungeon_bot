@@ -18,6 +18,7 @@ class StartHandler:
         self.bot = bot
         self.dp = dp
         self.handlers = handlers_container
+        self.bot_username = None
         self._register_handlers()
     
     def _register_handlers(self):
@@ -26,6 +27,10 @@ class StartHandler:
         @self.dp.message(Command('start'))
         async def cmd_start(message: types.Message, state: FSMContext):
             await self.cmd_start(message, state)
+        
+        @self.dp.message(lambda message: message.text and message.text.startswith('/start '))
+        async def handle_start_commands(message: types.Message, state: FSMContext):
+            await self.handle_start_commands(message, state)
         
         @self.dp.message(Command('help'))
         async def cmd_help(message: types.Message, state: FSMContext):
@@ -59,8 +64,39 @@ class StartHandler:
         async def cancel_reset(callback: types.CallbackQuery, state: FSMContext):
             await self.cancel_reset(callback, state)
     
+    async def handle_start_commands(self, message: types.Message, state: FSMContext):
+        """Обрабатывает команды из гиперссылок"""
+        command = message.text.replace('/start ', '').strip()
+        
+        if command == 'next_step':
+            await self.handlers.dungeon.next_step_command(message, state)
+        elif command == 'return_haven':
+            await self.handlers.haven.enter_haven_command(message, state)
+        elif command == 'show_stats':
+            await self.cmd_stats(message, state)
+        elif command == 'battle_back':
+            # Возврат в бой
+            await self.handlers.battle.show_battle(message, state)
+        elif command.startswith('battle_'):
+            # Команды боя обрабатываются в battle.py
+            await self.handlers.battle.process_battle_command(message, state)
+        elif command == 'show_inventory':
+            await self.handlers.inventory.show_inventory(message, state)
+        elif command == 'show_equipment':
+            await self.handlers.inventory.show_equipment(message, state)
+        elif command == 'show_quests':
+            await self.handlers.quest.show_quests(message, state)
+        else:
+            # Неизвестная команда - показываем стартовое меню
+            await self.cmd_start(message, state)
+    
     async def cmd_start(self, message: types.Message, state: FSMContext):
         """Обрабатывает команду /start"""
+        # Получаем username бота
+        if not self.bot_username:
+            bot_info = await self.bot.me()
+            self.bot_username = bot_info.username
+        
         user_name = message.from_user.first_name or "Странник"
         welcome_text = format_welcome_message(user_name)
         keyboard = get_start_keyboard()
@@ -106,11 +142,14 @@ class StartHandler:
         progression = ProgressionSystem(player)
         stats_text = progression.get_progression_string()
         
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="◀ Назад", callback_data="back_to_dungeon")]
-        ])
+        # Получаем username бота для ссылок
+        if not self.bot_username:
+            bot_info = await self.bot.me()
+            self.bot_username = bot_info.username
         
-        await message.answer(stats_text, reply_markup=keyboard)
+        text = stats_text + f"\n\n[◀ Назад](tg://resolve?domain={self.bot_username}&start=battle_back)"
+        
+        await message.answer(text, parse_mode="Markdown")
     
     async def cmd_reset(self, message: types.Message, state: FSMContext):
         """Команда /reset"""
