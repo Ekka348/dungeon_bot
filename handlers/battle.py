@@ -41,7 +41,7 @@ class BattleUI:
         enemy_hp_bar = cls._create_hp_bar(enemy.hp, enemy.max_hp, 5)
         enemy_rarity = enemy.get_rarity_color()
         enemy_name = f"{enemy_rarity} {enemy.emoji} {enemy.name}"
-        lines.append(f"{enemy_name} ❤️ {enemy_hp_bar} {enemy.hp}/{enemy.max_hp}")
+        lines.append(f"{enemy_name} ❤️{enemy_hp_bar} {enemy.hp}/{enemy.max_hp}")
         lines.append("")
         
         return "\n".join(lines)
@@ -70,17 +70,17 @@ class BattleKeyboard:
         
         buttons = []
         
-        # Полоски здоровья и маны (длина 3 символа)
+        # Полоски здоровья и маны (без пробелов)
         player_hp_bar = BattleUI._create_hp_bar(player.hp, player.max_hp, 3)
         player_mana_bar = BattleUI._create_bar(player.mana, player.max_mana, 3)
         
-        hp_text = f"❤️ {player_hp_bar} {player.hp}/{player.max_hp}"
-        mana_text = f"Ⓜ️ {player_mana_bar} {player.mana}/{player.max_mana}"
+        hp_text = f"❤️{player_hp_bar} {player.hp}/{player.max_hp}"
+        mana_text = f"Ⓜ️{player_mana_bar} {player.mana}/{player.max_mana}"
         
         # Первая строка - здоровье и мана (неактивные кнопки)
         buttons.append([
             InlineKeyboardButton(text=hp_text, callback_data="ignore"),
-            InlineKeyboardButton(text="⬜", callback_data="ignore"),  # Пустой разделитель
+            InlineKeyboardButton(text="➖", callback_data="ignore"),  # Пустой разделитель
             InlineKeyboardButton(text=mana_text, callback_data="ignore")
         ])
         
@@ -94,7 +94,7 @@ class BattleKeyboard:
         has_portal = player.current_location == 2 or player.has_portal
         
         # Строка с фласками здоровья и маны
-        health_text1 = "⬜ [   ]"  # Пустая фласка по умолчанию
+        health_text1 = "[пустой слот]"  # Пустая фласка по умолчанию
         health_callback1 = "ignore"
         if len(health_flasks) > 0:
             flask = health_flasks[0]
@@ -102,7 +102,7 @@ class BattleKeyboard:
             health_text1 = f"🟢💊🧪 [{flask_bar}]"
             health_callback1 = f"battle_flask_health_0"
         
-        mana_text1 = "⬜ [   ]"  # Пустая фласка по умолчанию
+        mana_text1 = "[пустой слот]"  # Пустая фласка по умолчанию
         mana_callback1 = "ignore"
         if len(mana_flasks) > 0:
             flask = mana_flasks[0]
@@ -117,7 +117,7 @@ class BattleKeyboard:
         ])
         
         # Вторая строка с фласками
-        health_text2 = "⬜ [   ]"  # Пустая фласка по умолчанию
+        health_text2 = "[пустой слот]"  # Пустая фласка по умолчанию
         health_callback2 = "ignore"
         if len(health_flasks) > 1:
             flask = health_flasks[1]
@@ -125,7 +125,7 @@ class BattleKeyboard:
             health_text2 = f"🟢💊🧪 [{flask_bar}]"
             health_callback2 = f"battle_flask_health_1"
         
-        mana_text2 = "⬜ [   ]"  # Пустая фласка по умолчанию
+        mana_text2 = "[пустой слот]"  # Пустая фласка по умолчанию
         mana_callback2 = "ignore"
         if len(mana_flasks) > 1:
             flask = mana_flasks[1]
@@ -140,7 +140,7 @@ class BattleKeyboard:
         ])
         
         # Третья строка - бафф, защита и умение
-        buff_text = "⬜ [   ]"  # Пустая фласка по умолчанию
+        buff_text = "[пустой слот]"  # Пустая фласка по умолчанию
         buff_callback = "ignore"
         if len(buff_flasks) > 0:
             flask = buff_flasks[0]
@@ -148,7 +148,7 @@ class BattleKeyboard:
             buff_text = f"⚪️✨🧪 [{flask_bar}]"
             buff_callback = f"battle_flask_buff_0"
         
-        defense_text = "⬜ [   ]"  # Пустая фласка по умолчанию
+        defense_text = "[пустой слот]"  # Пустая фласка по умолчанию
         defense_callback = "ignore"
         if len(defense_flasks) > 0:
             flask = defense_flasks[0]
