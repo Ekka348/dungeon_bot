@@ -34,10 +34,10 @@ class Player:
         self.life_on_hit = 0
         self.stun_multiplier = 1.0
         
-        # Атрибуты - увеличены до 100 для баланса
-        self.strength = 100
-        self.dexterity = 100
-        self.intelligence = 100
+        # Атрибуты - увеличены до 20 для баланса
+        self.strength = 20
+        self.dexterity = 20
+        self.intelligence = 20
         
         # Прогрессия
         self.exp = 0
