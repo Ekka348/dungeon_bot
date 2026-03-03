@@ -59,14 +59,6 @@ class DungeonHandler:
         async def open_chest(callback: types.CallbackQuery, state: FSMContext):
             await self.open_chest(callback, state)
         
-        @self.dp.callback_query(lambda c: c.data == "trigger_trap")
-        async def trigger_trap(callback: types.CallbackQuery, state: FSMContext):
-            await self.trigger_trap(callback, state)
-        
-        @self.dp.callback_query(lambda c: c.data == "take_rest")
-        async def take_rest(callback: types.CallbackQuery, state: FSMContext):
-            await self.take_rest(callback, state)
-        
         @self.dp.callback_query(lambda c: c.data == "start_battle_from_dungeon")
         async def start_battle_from_dungeon(callback: types.CallbackQuery, state: FSMContext):
             await self.handlers.battle.start_battle(callback, state)
@@ -163,12 +155,12 @@ class DungeonHandler:
         # Проверяем, является ли текущее событие битвой и не пройдена ли она
         is_battle_event = event["type"] == "battle" and not event.get("completed", False)
         
-        # Первая строка - здоровье, кнопка вступления в бой (если нужно), мана
+        # Первая строка - здоровье, кнопка битвы (если нужно), мана
         if is_battle_event:
-            # Если это битва и она не начата - показываем кнопку "Вступить в бой"
+            # Если это битва и она не начата - показываем кнопку "Битва"
             buttons.append([
                 InlineKeyboardButton(text=hp_text, callback_data="ignore"),
-                InlineKeyboardButton(text="⚔️ Вступить в бой", callback_data="start_battle_from_dungeon"),
+                InlineKeyboardButton(text="⚔️ Битва", callback_data="start_battle_from_dungeon"),
                 InlineKeyboardButton(text=mana_text, callback_data="ignore")
             ])
         else:
@@ -275,7 +267,7 @@ class DungeonHandler:
         return "█" * filled + "░" * (length - filled)
     
     def _format_event(self, event):
-        """Форматирует событие"""
+        """Форматирует событие - только битвы и сундуки"""
         if event["type"] == "battle":
             monster = event["monster"]
             return (
@@ -288,10 +280,6 @@ class DungeonHandler:
             rarity_colors = {"common": "🟢", "magic": "🟣", "rare": "🟡"}
             rarity_name = rarity_colors.get(event["rarity"], "🟢")
             return f"📦 **СУНДУК**\n\n{rarity_name} сундук"
-        elif event["type"] == "trap":
-            return f"⚠️ **ЛОВУШКА**\n\n💥 Урон: {event.get('damage', 20)}"
-        elif event["type"] == "rest":
-            return f"🔥 **МЕСТО ОТДЫХА**\n\n❤️ Восстановление: {event.get('heal', 30)} HP"
         elif event["type"] == "transition":
             next_loc_id = event.get("to_location")
             next_loc = AreaRegistry.get_location(next_loc_id)
@@ -487,71 +475,6 @@ class DungeonHandler:
                 loot_text.append(loot_item.get_name())
         
         player.add_chest_opened()
-        
-        # Отмечаем событие как пройденное
-        events[current_index]["completed"] = True
-        await state.update_data(player=player, dungeon_events=events)
-        
-        # Возвращаемся в подземелье
-        await self.show_dungeon(callback.message, state)
-        await callback.answer()
-    
-    async def trigger_trap(self, callback: types.CallbackQuery, state: FSMContext):
-        """Активация ловушки"""
-        data = await state.get_data()
-        player = data['player']
-        events = data.get('dungeon_events', [])
-        current_index = player.position_in_location
-        
-        if current_index >= len(events):
-            await callback.answer("Ошибка: событие не найдена")
-            return
-        
-        current_event = events[current_index]
-        
-        if current_event["type"] != "trap":
-            await callback.answer("Это не ловушка!")
-            return
-        
-        damage = current_event.get("damage", 20)
-        actual_damage = player.take_damage(damage)
-        player.add_trap_triggered()
-        
-        # Отмечаем событие как пройденное
-        events[current_index]["completed"] = True
-        await state.update_data(player=player, dungeon_events=events)
-        
-        if not player.is_alive():
-            # В первой локации при смерти просто обновляем состояние
-            if player.current_location == 1:
-                player.hp = player.max_hp // 2
-                player.mana = player.max_mana // 2
-                player.position_in_location = 0
-                await state.update_data(player=player)
-        
-        # Возвращаемся в подземелье
-        await self.show_dungeon(callback.message, state)
-        await callback.answer()
-    
-    async def take_rest(self, callback: types.CallbackQuery, state: FSMContext):
-        """Отдых"""
-        data = await state.get_data()
-        player = data['player']
-        events = data.get('dungeon_events', [])
-        current_index = player.position_in_location
-        
-        if current_index >= len(events):
-            await callback.answer("Ошибка: событие не найдена")
-            return
-        
-        current_event = events[current_index]
-        
-        if current_event["type"] != "rest":
-            await callback.answer("Здесь нельзя отдохнуть!")
-            return
-        
-        heal = current_event.get("heal", 30)
-        player.heal(heal)
         
         # Отмечаем событие как пройденное
         events[current_index]["completed"] = True
