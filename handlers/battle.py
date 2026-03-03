@@ -117,7 +117,7 @@ class BattleKeyboard:
             
             mana_row_text = f"{mana_slots[0]} {mana_slots[1]} {mana_slots[2]}"
             
-            # Строка с фласками
+            # Строка с фласками и картой
             buttons.append([
                 InlineKeyboardButton(text=health_row_text, callback_data="ignore"),
                 InlineKeyboardButton(text="🗺️ Карта", callback_data="show_map"),
@@ -209,7 +209,17 @@ class BattleHandler:
         
         @self.dp.callback_query(lambda c: c.data == "battle_back")
         async def battle_back(callback: types.CallbackQuery, state: FSMContext):
-            await self.show_battle(callback.message, state)
+            # Проверяем, есть ли активный бой
+            data = await state.get_data()
+            battle_enemy = data.get('battle_enemy')
+            
+            if battle_enemy:
+                # Если бой идет - возвращаемся в бой
+                await self.show_battle(callback.message, state)
+            else:
+                # Если боя нет - возвращаемся в подземелье
+                await self.handlers.dungeon.show_dungeon(callback.message, state)
+            
             await callback.answer()
         
         @self.dp.callback_query(lambda c: c.data.startswith("battle_flask_health_"))
@@ -328,7 +338,8 @@ class BattleHandler:
         battle_log = data.get('battle_log', deque(maxlen=10))
         
         if not player or not enemy or not combat:
-            await message.answer("❌ Ошибка состояния боя")
+            # Если нет боя, показываем подземелье
+            await self.handlers.dungeon.show_dungeon(message, state)
             return
         
         # Создаем текст боя
@@ -516,8 +527,9 @@ class BattleHandler:
             f"✨ Опыт: {player.exp}/{player.level * 100}"
         )
         
+        # Кнопка "Назад" (без указания "в бой")
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="◀ Назад в бой", callback_data="battle_back")]
+            [InlineKeyboardButton(text="◀ Назад", callback_data="battle_back")]
         ])
         
         await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
@@ -567,30 +579,8 @@ class BattleHandler:
             events[current_index]["completed"] = True
             await state.update_data(dungeon_events=events)
         
-        text = f"🎉 **ПОБЕДА!**\n\n"
-        text += f"Ты победил {enemy.emoji} {enemy.name}!\n\n"
-        text += f"✨ Опыт: +{exp_gained}\n"
-        text += f"💰 Золото: +{gold_gained}\n"
-        
-        if charges_restored > 0:
-            text += f"🧪 Восстановлено зарядов фласок: +{charges_restored}\n"
-        
-        if levels_gained > 0:
-            text += f"⬆️ Новый уровень: {player.level}!\n"
-        
-        if loot_text:
-            text += f"\n**Добыча:**\n"
-            for item in loot_text:
-                text += f"  {item}\n"
-        
-        # Сохраняем обновленного игрока
-        await state.update_data(player=player)
-        
-        # Удаляем сообщение с боем
-        try:
-            await message.delete()
-        except:
-            pass
+        # Удаляем врага из состояния (бой окончен)
+        await state.update_data(battle_enemy=None, combat_system=None)
         
         # Показываем подземелье с обновленным событием
         await self.handlers.dungeon.show_dungeon(message, state)
@@ -622,6 +612,9 @@ class BattleHandler:
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="➡️ Продолжить", callback_data="next_step")]
             ])
+            
+            await state.update_data(battle_enemy=None, combat_system=None)
+            await message.answer(text, parse_mode="Markdown", reply_markup=keyboard)
         else:
             # В других локациях возрождаемся в убежище
             player.hp = player.max_hp // 2
@@ -643,20 +636,15 @@ class BattleHandler:
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")]
             ])
-        
-        await state.update_data(
-            player=player,
-            battle_enemy=None,
-            combat_system=None,
-            battle_log=deque(maxlen=10)
-        )
-        
-        try:
-            await message.delete()
-        except:
-            pass
-        
-        await message.answer(text, parse_mode="Markdown", reply_markup=keyboard)
+            
+            await state.update_data(
+                player=player,
+                battle_enemy=None,
+                combat_system=None,
+                battle_log=deque(maxlen=10)
+            )
+            
+            await message.answer(text, parse_mode="Markdown", reply_markup=keyboard)
     
     async def handle_flee(self, message: types.Message, state: FSMContext):
         """Обрабатывает побег"""
