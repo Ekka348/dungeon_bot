@@ -68,9 +68,21 @@ class DungeonHandler:
         async def blocked_attack(callback: types.CallbackQuery, state: FSMContext):
             data = await state.get_data()
             player = data.get('player')
-            events = data.get('dungeon_events', [])
+            battle_enemy = data.get('battle_enemy')
             
-            if player and events:
+            # Если есть враг в состоянии боя - значит бой идет
+            if battle_enemy:
+                await callback.answer()
+                # Перенаправляем в battle.py для обработки
+                await self.handlers.battle.process_action(callback, state, 
+                    CombatAction.ATTACK if callback.data == "battle_attack" else
+                    CombatAction.HEAVY_ATTACK if callback.data == "battle_heavy" else
+                    CombatAction.FAST_ATTACK)
+                return
+            
+            # Если нет врага, проверяем событие
+            if player:
+                events = data.get('dungeon_events', [])
                 current_index = player.position_in_location
                 if current_index < len(events):
                     current_event = events[current_index]
@@ -206,22 +218,12 @@ class DungeonHandler:
         
         # Для первой локации нет фласок
         if player.current_location == 1:
-            # Кнопки действий - они доступны ТОЛЬКО после начала боя
-            # Поэтому делаем их неактивными, пока бой не начат
-            if is_battle_event and not event.get("completed", False):
-                # Бой еще не начат - кнопки атак неактивны
-                buttons.append([
-                    InlineKeyboardButton(text="➖", callback_data="ignore"),
-                    InlineKeyboardButton(text="➖", callback_data="ignore"),
-                    InlineKeyboardButton(text="➖", callback_data="ignore")
-                ])
-            else:
-                # Бой идет или уже прошел - показываем активные кнопки атак
-                buttons.append([
-                    InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
-                    InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
-                    InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
-                ])
+            # Кнопки действий - всегда активны, но проверка будет в обработчике
+            buttons.append([
+                InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
+                InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
+                InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
+            ])
         else:
             # Для других локаций - показываем фласки
             # Находим фласки по типам
@@ -266,21 +268,12 @@ class DungeonHandler:
             if health_buttons:
                 buttons.append(health_buttons)
             
-            # Кнопки действий - доступны только во время боя
-            if is_battle_event and not event.get("completed", False):
-                # Бой еще не начат - кнопки атак неактивны
-                buttons.append([
-                    InlineKeyboardButton(text="➖", callback_data="ignore"),
-                    InlineKeyboardButton(text="➖", callback_data="ignore"),
-                    InlineKeyboardButton(text="➖", callback_data="ignore")
-                ])
-            else:
-                # Бой идет или уже прошел - показываем активные кнопки атак
-                buttons.append([
-                    InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
-                    InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
-                    InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
-                ])
+            # Кнопки действий - всегда активны, но проверка будет в обработчике
+            buttons.append([
+                InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
+                InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
+                InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
+            ])
             
             # Кнопки для активных фласок маны
             mana_buttons = []
