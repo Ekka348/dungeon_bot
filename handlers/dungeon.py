@@ -257,16 +257,11 @@ class DungeonHandler:
                 InlineKeyboardButton(text=mana_row_text, callback_data="ignore")
             ])
             
-            # Кнопки для активных фласок
+            # Кнопки для активных фласок здоровья
             health_buttons = []
             for i, callback in enumerate(health_callbacks):
                 if callback != "ignore":
                     health_buttons.append(InlineKeyboardButton(text=f"💊{i+1}", callback_data=callback))
-            
-            mana_buttons = []
-            for i, callback in enumerate(mana_callbacks):
-                if callback != "ignore":
-                    mana_buttons.append(InlineKeyboardButton(text=f"Ⓜ️{i+1}", callback_data=callback))
             
             if health_buttons:
                 buttons.append(health_buttons)
@@ -286,6 +281,12 @@ class DungeonHandler:
                     InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
                     InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
                 ])
+            
+            # Кнопки для активных фласок маны
+            mana_buttons = []
+            for i, callback in enumerate(mana_callbacks):
+                if callback != "ignore":
+                    mana_buttons.append(InlineKeyboardButton(text=f"Ⓜ️{i+1}", callback_data=callback))
             
             if mana_buttons:
                 buttons.append(mana_buttons)
