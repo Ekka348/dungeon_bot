@@ -103,8 +103,16 @@ class DungeonHandler:
         
         current_index = player.position_in_location
         if current_index >= len(events):
-            await self.show_location_complete(message, state)
-            return
+            # Если это первая локация и события закончились - автоматически в убежище
+            if player.current_location == 1:
+                player.current_location = 2
+                player.position_in_location = 0
+                await state.update_data(player=player, dungeon_events=[])
+                await self.handlers.haven.show_haven(message, state)
+                return
+            else:
+                await self.show_location_complete(message, state)
+                return
         
         current_event = events[current_index]
         
@@ -114,8 +122,8 @@ class DungeonHandler:
             return
         
         # Прогресс-бар
-        progress_bar = format_progress_bar(current_index, len(events),
-                                          [e.get("type") for e in events])
+        event_types = [e.get("type") for e in events]
+        progress_bar = format_progress_bar(current_index, len(events), event_types)
         
         # Информация о событии
         event_info = self._format_event(current_event)
@@ -152,10 +160,11 @@ class DungeonHandler:
         hp_text = f"❤️{player_hp_bar} {player.hp}/{player.max_hp}"
         mana_text = f"Ⓜ️{player_mana_bar} {player.mana}/{player.max_mana}"
         
-        # Проверяем, является ли текущее событие битвой и не пройдена ли она
+        # Проверяем, является ли текущее событие битвой или сундуком и не пройдено ли оно
         is_battle_event = event["type"] == "battle" and not event.get("completed", False)
+        is_chest_event = event["type"] == "chest" and not event.get("completed", False)
         
-        # Первая строка - здоровье, кнопка битвы (если нужно), мана
+        # Первая строка - здоровье, кнопка действия, мана
         if is_battle_event:
             # Если это битва и она не начата - показываем кнопку "Битва"
             buttons.append([
@@ -163,8 +172,15 @@ class DungeonHandler:
                 InlineKeyboardButton(text="⚔️ Битва", callback_data="start_battle_from_dungeon"),
                 InlineKeyboardButton(text=mana_text, callback_data="ignore")
             ])
+        elif is_chest_event:
+            # Если это сундук и он не открыт - показываем кнопку "Открыть"
+            buttons.append([
+                InlineKeyboardButton(text=hp_text, callback_data="ignore"),
+                InlineKeyboardButton(text="📦 Открыть", callback_data="open_chest"),
+                InlineKeyboardButton(text=mana_text, callback_data="ignore")
+            ])
         else:
-            # Если это не битва или битва уже пройдена - показываем разделитель
+            # Если событие пройдено - показываем разделитель
             buttons.append([
                 InlineKeyboardButton(text=hp_text, callback_data="ignore"),
                 InlineKeyboardButton(text="➖", callback_data="ignore"),
@@ -308,7 +324,14 @@ class DungeonHandler:
         await state.update_data(player=player)
         
         if player.position_in_location >= len(events):
-            await self.show_location_complete(message, state)
+            # Если это первая локация и события закончились - автоматически в убежище
+            if player.current_location == 1:
+                player.current_location = 2
+                player.position_in_location = 0
+                await state.update_data(player=player, dungeon_events=[])
+                await self.handlers.haven.show_haven(message, state)
+            else:
+                await self.show_location_complete(message, state)
         else:
             await self.show_dungeon(message, state)
         
@@ -452,7 +475,7 @@ class DungeonHandler:
         current_index = player.position_in_location
         
         if current_index >= len(events):
-            await callback.answer("Ошибка: событие не найдена")
+            await callback.answer("Ошибка: событие не найдено")
             return
         
         current_event = events[current_index]
@@ -480,6 +503,16 @@ class DungeonHandler:
         events[current_index]["completed"] = True
         await state.update_data(player=player, dungeon_events=events)
         
-        # Возвращаемся в подземелье
-        await self.show_dungeon(callback.message, state)
+        # Показываем сообщение о найденном луте
+        text = (
+            f"📦 **СУНДУК ОТКРЫТ!**\n\n"
+            f"**Ты нашел:**\n" + "\n".join([f"  {item}" for item in loot_text])
+        )
+        
+        # Кнопка для продолжения
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="➡️ Продолжить", callback_data="next_step")]
+        ])
+        
+        await callback.message.edit_text(text, reply_markup=keyboard)
         await callback.answer()
