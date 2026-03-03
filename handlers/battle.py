@@ -27,22 +27,20 @@ class BattleUI:
         
         lines = []
         
-        # Первая строка - сообщение из лога
-        first_message = "⚔️ Бой начался!"
-        if battle_log and len(battle_log) > 0:
-            last_entry = list(battle_log)[-1]
-            if last_entry and last_entry.get("result"):
-                first_message = last_entry["result"][-1]
-        
-        lines.append(first_message)
-        lines.append("")
-        
-        # Информация о враге - шкала 5 символов
-        enemy_hp_bar = cls._create_hp_bar(enemy.hp, enemy.max_hp, 5)
+        # Информация о враге
+        enemy_hp_bar = cls._create_hp_bar(enemy.hp, enemy.max_hp, 10)
         enemy_rarity = enemy.get_rarity_color()
         enemy_name = f"{enemy_rarity} {enemy.emoji} {enemy.name}"
         lines.append(f"{enemy_name} ❤️{enemy_hp_bar} {enemy.hp}/{enemy.max_hp}")
         lines.append("")
+        
+        # Лог боя (последние 3 сообщения)
+        if battle_log and len(battle_log) > 0:
+            log_list = list(battle_log)
+            for entry in log_list[-3:]:
+                if entry and entry.get("result"):
+                    for msg in entry["result"][-1:]:  # Берем последнее сообщение из каждого хода
+                        lines.append(msg)
         
         return "\n".join(lines)
     
@@ -70,9 +68,9 @@ class BattleKeyboard:
         
         buttons = []
         
-        # Полоски здоровья и маны (без пробелов)
-        player_hp_bar = BattleUI._create_hp_bar(player.hp, player.max_hp, 3)
-        player_mana_bar = BattleUI._create_bar(player.mana, player.max_mana, 3)
+        # Полоски здоровья и маны
+        player_hp_bar = BattleUI._create_hp_bar(player.hp, player.max_hp, 5)
+        player_mana_bar = BattleUI._create_bar(player.mana, player.max_mana, 5)
         
         hp_text = f"❤️{player_hp_bar} {player.hp}/{player.max_hp}"
         mana_text = f"Ⓜ️{player_mana_bar} {player.mana}/{player.max_mana}"
