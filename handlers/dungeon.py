@@ -10,6 +10,7 @@ from systems.loot import LootSystem
 from utils.keyboards import get_dungeon_keyboard
 from utils.helpers import format_progress_bar, format_dungeon_view
 from data.act1 import Act1
+from systems.combat import CombatAction
 
 
 class DungeonHandler:
@@ -63,34 +64,47 @@ class DungeonHandler:
         async def start_battle_from_dungeon(callback: types.CallbackQuery, state: FSMContext):
             await self.handlers.battle.start_battle(callback, state)
         
-        # Блокируем кнопки атак, если бой не начат
-        @self.dp.callback_query(lambda c: c.data in ["battle_attack", "battle_heavy", "battle_fast"])
-        async def blocked_attack(callback: types.CallbackQuery, state: FSMContext):
+        # Обработчики для кнопок атак
+        @self.dp.callback_query(lambda c: c.data == "battle_attack")
+        async def battle_attack(callback: types.CallbackQuery, state: FSMContext):
             data = await state.get_data()
-            player = data.get('player')
             battle_enemy = data.get('battle_enemy')
             
-            # Если есть враг в состоянии боя - значит бой идет
             if battle_enemy:
-                await callback.answer()
-                # Перенаправляем в battle.py для обработки
-                await self.handlers.battle.process_action(callback, state, 
-                    CombatAction.ATTACK if callback.data == "battle_attack" else
-                    CombatAction.HEAVY_ATTACK if callback.data == "battle_heavy" else
-                    CombatAction.FAST_ATTACK)
-                return
+                # Если бой идет - обрабатываем атаку
+                await self.handlers.battle.process_action(callback, state, CombatAction.ATTACK)
+            else:
+                # Если боя нет - показываем сообщение
+                await callback.answer("❌ Сначала начни битву кнопкой ⚔️ Битва!")
+        
+        @self.dp.callback_query(lambda c: c.data == "battle_heavy")
+        async def battle_heavy(callback: types.CallbackQuery, state: FSMContext):
+            data = await state.get_data()
+            battle_enemy = data.get('battle_enemy')
             
-            # Если нет врага, проверяем событие
-            if player:
-                events = data.get('dungeon_events', [])
-                current_index = player.position_in_location
-                if current_index < len(events):
-                    current_event = events[current_index]
-                    if current_event["type"] == "battle" and not current_event.get("completed", False):
-                        await callback.answer("❌ Сначала начни битву кнопкой ⚔️ Битва!")
-                        return
+            if battle_enemy:
+                await self.handlers.battle.process_action(callback, state, CombatAction.HEAVY_ATTACK)
+            else:
+                await callback.answer("❌ Сначала начни битву кнопкой ⚔️ Битва!")
+        
+        @self.dp.callback_query(lambda c: c.data == "battle_fast")
+        async def battle_fast(callback: types.CallbackQuery, state: FSMContext):
+            data = await state.get_data()
+            battle_enemy = data.get('battle_enemy')
             
-            await callback.answer("❌ Действие недоступно")
+            if battle_enemy:
+                await self.handlers.battle.process_action(callback, state, CombatAction.FAST_ATTACK)
+            else:
+                await callback.answer("❌ Сначала начни битву кнопкой ⚔️ Битва!")
+        
+        # Обработчики для кнопок навигации (всегда доступны)
+        @self.dp.callback_query(lambda c: c.data == "battle_stats")
+        async def battle_stats(callback: types.CallbackQuery, state: FSMContext):
+            await self.handlers.battle.show_player_stats(callback, state)
+        
+        @self.dp.callback_query(lambda c: c.data == "battle_inventory")
+        async def battle_inventory(callback: types.CallbackQuery, state: FSMContext):
+            await self.handlers.inventory.show_inventory(callback, state)
     
     async def next_step_command(self, message: types.Message, state: FSMContext):
         """Обрабатывает команду next_step из гиперссылки"""
@@ -218,7 +232,7 @@ class DungeonHandler:
         
         # Для первой локации нет фласок
         if player.current_location == 1:
-            # Кнопки действий - всегда активны, но проверка будет в обработчике
+            # Кнопки действий - всегда видны, но их обработка будет проверять наличие боя
             buttons.append([
                 InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
                 InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
@@ -268,7 +282,7 @@ class DungeonHandler:
             if health_buttons:
                 buttons.append(health_buttons)
             
-            # Кнопки действий - всегда активны, но проверка будет в обработчике
+            # Кнопки действий - всегда видны, но их обработка будет проверять наличие боя
             buttons.append([
                 InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
                 InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
@@ -284,7 +298,7 @@ class DungeonHandler:
             if mana_buttons:
                 buttons.append(mana_buttons)
         
-        # Навигационные кнопки
+        # Навигационные кнопки (всегда доступны)
         nav_row = []
         
         # Кнопка "Убежище" только если игрок уже был там
