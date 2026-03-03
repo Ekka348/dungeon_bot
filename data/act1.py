@@ -18,8 +18,9 @@ class Act1:
             "next_location": 2,
             "monster_density": 0.8,
             "event_density": 0.2,
-            "min_events": 8,
-            "max_events": 12
+            "min_events": 5,  # Уменьшено до 5
+            "max_events": 5,  # Фиксированное количество
+            "only_common_monsters": True  # Только обычные монстры
         },
         2: {
             "id": 2,
@@ -107,7 +108,7 @@ class Act1:
     
     # ============= МОНСТРЫ ДЛЯ КАЖДОЙ ЛОКАЦИИ =============
     
-    # Локация 1: Вход в бездну - слабые монстры
+    # Локация 1: Вход в бездну - только обычные монстры
     LOCATION1_MONSTERS = {
         "common": [
             {
@@ -150,52 +151,10 @@ class Act1:
                 "spawn_weight": 25
             }
         ],
-        "magic": [
-            {
-                "name": "Гниющий узник-калека",
-                "name_en": "Crippled Prisoner",
-                "base_hp": 35,
-                "damage": (4, 8),
-                "accuracy": 55,
-                "defense": 2,
-                "base_exp": 15,
-                "emoji": "🧟⚡",
-                "image": "images/act1/crippled_prisoner.jpg",
-                "description": "Его ноги сломаны, но он ползет к тебе с ужасающей скоростью.",
-                "spawn_weight": 60
-            },
-            {
-                "name": "Крысиный король",
-                "name_en": "Rat King",
-                "base_hp": 40,
-                "damage": (5, 9),
-                "accuracy": 65,
-                "defense": 2,
-                "base_exp": 18,
-                "emoji": "🐀👑",
-                "image": "images/act1/rat_king.jpg",
-                "description": "Огромная крыса-мутант, предводитель стаи.",
-                "spawn_weight": 40
-            }
-        ],
-        "rare": [
-            {
-                "name": "Тюремный надзиратель",
-                "name_en": "Prison Warden",
-                "base_hp": 50,
-                "damage": (6, 12),
-                "accuracy": 65,
-                "defense": 4,
-                "base_exp": 25,
-                "emoji": "👹🔑",
-                "image": "images/act1/prison_warden.jpg",
-                "description": "Бывший надзиратель, теперь сам стал узником тьмы.",
-                "spawn_weight": 100
-            }
-        ]
+        # В первой локации нет магических и редких монстров
+        "magic": [],
+        "rare": []
     }
-    
-    # Локация 2: Убежище (без монстров)
     
     # Локация 3: Кости катакомб - скелеты и нежить
     LOCATION3_MONSTERS = {
@@ -940,16 +899,24 @@ class Act1:
         monster_density = location.get("monster_density", 0.7)
         event_density = location.get("event_density", 0.3)
         
+        # Проверяем, только ли обычные монстры в локации
+        only_common = location.get("only_common_monsters", False)
+        
         for _ in range(num_events):
             if random.random() < monster_density:
                 # Генерируем монстра
-                rarity_roll = random.random()
-                if rarity_roll < 0.7:
+                if only_common:
+                    # Только обычные монстры
                     rarity = "common"
-                elif rarity_roll < 0.95:
-                    rarity = "magic"
                 else:
-                    rarity = "rare"
+                    # Обычное распределение редкости
+                    rarity_roll = random.random()
+                    if rarity_roll < 0.7:
+                        rarity = "common"
+                    elif rarity_roll < 0.95:
+                        rarity = "magic"
+                    else:
+                        rarity = "rare"
                 
                 monster = cls.get_random_monster(location_id, rarity)
                 if monster:
@@ -962,8 +929,8 @@ class Act1:
                         "completed": False
                     })
             else:
-                # Генерируем событие
-                event_type = random.choice(["chest", "trap", "rest"])
+                # Генерируем событие - только сундуки, без ловушек и отдыха
+                event_type = random.choice(["chest"])  # Только сундуки
                 if event_type == "chest":
                     rarity_roll = random.random()
                     if rarity_roll < 0.7:
@@ -976,24 +943,6 @@ class Act1:
                     events.append({
                         "type": "chest",
                         "rarity": chest_rarity,
-                        "location_id": location_id,
-                        "location_name": location["name"],
-                        "completed": False
-                    })
-                elif event_type == "trap":
-                    damage = 10 + location["area_level"] * 2
-                    events.append({
-                        "type": "trap",
-                        "damage": damage,
-                        "location_id": location_id,
-                        "location_name": location["name"],
-                        "completed": False
-                    })
-                else:
-                    heal = 20 + location["area_level"] * 5
-                    events.append({
-                        "type": "rest",
-                        "heal": heal,
                         "location_id": location_id,
                         "location_name": location["name"],
                         "completed": False
