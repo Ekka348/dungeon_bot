@@ -66,6 +66,10 @@ class DungeonHandler:
         @self.dp.callback_query(lambda c: c.data == "take_rest")
         async def take_rest(callback: types.CallbackQuery, state: FSMContext):
             await self.take_rest(callback, state)
+        
+        @self.dp.callback_query(lambda c: c.data == "start_battle_from_dungeon")
+        async def start_battle_from_dungeon(callback: types.CallbackQuery, state: FSMContext):
+            await self.handlers.battle.start_battle(callback, state)
     
     async def next_step_command(self, message: types.Message, state: FSMContext):
         """Обрабатывает команду next_step из гиперссылки"""
@@ -131,58 +135,144 @@ class DungeonHandler:
             f"📊 Уровень локации: {area_level}\n\n"
             f"{progress_bar}\n\n"
             f"📍 **Событие {current_index + 1}/{len(events)}**\n\n"
-            f"{event_info}\n\n"
-            f"👤 {player.hp}/{player.max_hp} ❤️ | Ур. {player.level}\n"
-            f"💙 {player.mana}/{player.max_mana} MP"
+            f"{event_info}"
         )
         
-        # Создаем клавиатуру для подземелья с учетом локации
-        keyboard = self._create_dungeon_keyboard(current_event, player)
+        # Создаем клавиатуру для подземелья с учетом текущего события
+        keyboard = self._create_dungeon_keyboard(current_event, player, current_index, events)
         
         try:
             await message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
         except:
             await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
     
-    def _create_dungeon_keyboard(self, event, player):
+    def _create_dungeon_keyboard(self, event, player, current_index, events):
         """Создает клавиатуру для подземелья с учетом текущей локации"""
         buttons = []
         
         # Определяем, был ли игрок уже в убежище
         has_been_in_haven = 2 in player.visited_locations
         
-        # Кнопка для текущего события
-        if event["type"] == "battle" and not event.get("completed", False):
-            buttons.append([InlineKeyboardButton(text="⚔️ Вступить в бой", callback_data="start_battle")])
-        elif event["type"] == "boss" and not event.get("completed", False):
-            buttons.append([InlineKeyboardButton(text="👑 Сразиться с боссом", callback_data="start_battle")])
-        elif event["type"] == "chest" and not event.get("completed", False):
-            buttons.append([InlineKeyboardButton(text="📦 Открыть сундук", callback_data="open_chest")])
-        elif event["type"] == "trap" and not event.get("completed", False):
-            buttons.append([InlineKeyboardButton(text="⚠️ Пройти ловушку", callback_data="trigger_trap")])
-        elif event["type"] == "rest" and not event.get("completed", False):
-            buttons.append([InlineKeyboardButton(text="🔥 Отдохнуть", callback_data="take_rest")])
-        elif event["type"] == "transition" and not event.get("completed", False):
-            buttons.append([InlineKeyboardButton(text="🚪 Перейти", callback_data="go_to_next_location")])
+        # Базовая информация о персонаже
+        player_hp_bar = self._create_hp_bar(player.hp, player.max_hp, 3)
+        player_mana_bar = self._create_bar(player.mana, player.max_mana, 3)
+        
+        hp_text = f"❤️{player_hp_bar} {player.hp}/{player.max_hp}"
+        mana_text = f"Ⓜ️{player_mana_bar} {player.mana}/{player.max_mana}"
+        
+        # Проверяем, является ли текущее событие битвой и не пройдена ли она
+        is_battle_event = event["type"] == "battle" and not event.get("completed", False)
+        
+        # Первая строка - здоровье, кнопка вступления в бой (если нужно), мана
+        if is_battle_event:
+            # Если это битва и она не начата - показываем кнопку "Вступить в бой"
+            buttons.append([
+                InlineKeyboardButton(text=hp_text, callback_data="ignore"),
+                InlineKeyboardButton(text="⚔️ Вступить в бой", callback_data="start_battle_from_dungeon"),
+                InlineKeyboardButton(text=mana_text, callback_data="ignore")
+            ])
+        else:
+            # Если это не битва или битва уже пройдена - показываем разделитель
+            buttons.append([
+                InlineKeyboardButton(text=hp_text, callback_data="ignore"),
+                InlineKeyboardButton(text="➖", callback_data="ignore"),
+                InlineKeyboardButton(text=mana_text, callback_data="ignore")
+            ])
+        
+        # Для первой локации нет фласок
+        if player.current_location == 1:
+            # Только кнопки действий
+            buttons.append([
+                InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
+                InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
+                InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
+            ])
+        else:
+            # Для других локаций - показываем фласки
+            # Находим фласки по типам
+            health_flasks = [f for f in player.flasks if "💊" in f.emoji or "🧪" in f.emoji]
+            mana_flasks = [f for f in player.flasks if "Ⓜ️" in f.emoji]
+            
+            # Создаем строку с фласками здоровья (3 слота)
+            health_slots = ["⬜", "⬜", "⬜"]
+            health_callbacks = ["ignore", "ignore", "ignore"]
+            
+            for i, flask in enumerate(health_flasks[:3]):
+                flask_bar = self._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
+                health_slots[i] = f"🟢💊[{flask_bar}]"
+                health_callbacks[i] = f"battle_flask_health_{i}"
+            
+            health_row_text = f"{health_slots[0]} {health_slots[1]} {health_slots[2]}"
+            
+            # Создаем строку с фласками маны (3 слота)
+            mana_slots = ["⬜", "⬜", "⬜"]
+            mana_callbacks = ["ignore", "ignore", "ignore"]
+            
+            for i, flask in enumerate(mana_flasks[:3]):
+                flask_bar = self._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
+                mana_slots[i] = f"🟢Ⓜ️[{flask_bar}]"
+                mana_callbacks[i] = f"battle_flask_mana_{i}"
+            
+            mana_row_text = f"{mana_slots[0]} {mana_slots[1]} {mana_slots[2]}"
+            
+            # Строка с фласками и картой
+            buttons.append([
+                InlineKeyboardButton(text=health_row_text, callback_data="ignore"),
+                InlineKeyboardButton(text="🗺️ Карта", callback_data="show_map"),
+                InlineKeyboardButton(text=mana_row_text, callback_data="ignore")
+            ])
+            
+            # Кнопки для активных фласок
+            health_buttons = []
+            for i, callback in enumerate(health_callbacks):
+                if callback != "ignore":
+                    health_buttons.append(InlineKeyboardButton(text=f"💊{i+1}", callback_data=callback))
+            
+            mana_buttons = []
+            for i, callback in enumerate(mana_callbacks):
+                if callback != "ignore":
+                    mana_buttons.append(InlineKeyboardButton(text=f"Ⓜ️{i+1}", callback_data=callback))
+            
+            if health_buttons:
+                buttons.append(health_buttons)
+            
+            # Кнопки действий
+            buttons.append([
+                InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
+                InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
+                InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
+            ])
+            
+            if mana_buttons:
+                buttons.append(mana_buttons)
         
         # Навигационные кнопки
         nav_row = []
-        
-        # Кнопка "Далее" если событие пройдено
-        if event.get("completed", False):
-            nav_row.append(InlineKeyboardButton(text="➡️ Далее", callback_data="next_step"))
         
         # Кнопка "Убежище" только если игрок уже был там
         if has_been_in_haven:
             nav_row.append(InlineKeyboardButton(text="🏚️ Убежище", callback_data="return_to_haven"))
         
-        # Кнопка "Карта" доступна всегда
-        nav_row.append(InlineKeyboardButton(text="🗺️ Карта", callback_data="show_map"))
+        # Кнопка "Персонаж" доступна всегда
+        nav_row.append(InlineKeyboardButton(text="👤 Персонаж", callback_data="battle_stats"))
+        
+        # Кнопка "Инвентарь" доступна всегда
+        nav_row.append(InlineKeyboardButton(text="🎒 Инвентарь", callback_data="battle_inventory"))
         
         if nav_row:
             buttons.append(nav_row)
         
         return InlineKeyboardMarkup(inline_keyboard=buttons)
+    
+    def _create_hp_bar(self, current, maximum, length):
+        """Создает полоску здоровья"""
+        filled = int((current / maximum) * length)
+        return "█" * filled + "░" * (length - filled)
+    
+    def _create_bar(self, current, maximum, length):
+        """Создает полоску для любых показателей"""
+        filled = int((current / maximum) * length)
+        return "█" * filled + "░" * (length - filled)
     
     def _format_event(self, event):
         """Форматирует событие"""
@@ -358,6 +448,7 @@ class DungeonHandler:
             else:
                 text += f"⬜ {loc_data['name']}\n"
         
+        # Кнопка возврата
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="◀ Назад", callback_data="back_to_dungeon")]
         ])
@@ -401,27 +492,8 @@ class DungeonHandler:
         events[current_index]["completed"] = True
         await state.update_data(player=player, dungeon_events=events)
         
-        # Проверяем, был ли игрок уже в убежище
-        has_been_in_haven = 2 in player.visited_locations
-        
-        text = (
-            f"📦 **СУНДУК ОТКРЫТ!**\n\n"
-            f"**Ты нашел:**\n" + "\n".join([f"  {item}" for item in loot_text]) +
-            f"\n\n➡️ Нажми 'Идти дальше' чтобы продолжить"
-        )
-        
-        # Формируем клавиатуру
-        keyboard_buttons = [
-            [InlineKeyboardButton(text="➡️ Идти дальше", callback_data="next_step")]
-        ]
-        
-        # Кнопка убежища только если игрок уже был там
-        if has_been_in_haven:
-            keyboard_buttons.append([InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")])
-        
-        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-        
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        # Возвращаемся в подземелье
+        await self.show_dungeon(callback.message, state)
         await callback.answer()
     
     async def trigger_trap(self, callback: types.CallbackQuery, state: FSMContext):
@@ -449,41 +521,16 @@ class DungeonHandler:
         events[current_index]["completed"] = True
         await state.update_data(player=player, dungeon_events=events)
         
-        # Проверяем, был ли игрок уже в убежище
-        has_been_in_haven = 2 in player.visited_locations
-        
-        text = (
-            f"⚠️ **ЛОВУШКА СРАБОТАЛА!**\n\n"
-            f"💥 Ты получил {actual_damage} урона!\n"
-            f"❤️ Осталось здоровья: {player.hp}/{player.max_hp}\n\n"
-        )
-        
         if not player.is_alive():
-            text += "💀 Ты погиб..."
-            player.die()
-            await state.update_data(player=player)
-            
-            keyboard_buttons = []
-            # После смерти в первой локации нет кнопки убежища
+            # В первой локации при смерти просто обновляем состояние
             if player.current_location == 1:
-                keyboard_buttons.append([InlineKeyboardButton(text="➡️ Продолжить", callback_data="next_step")])
-            else:
-                keyboard_buttons.append([InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")])
-            
-            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-        else:
-            text += "➡️ Нажми 'Идти дальше' чтобы продолжить"
-            
-            keyboard_buttons = [
-                [InlineKeyboardButton(text="➡️ Идти дальше", callback_data="next_step")]
-            ]
-            
-            if has_been_in_haven:
-                keyboard_buttons.append([InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")])
-            
-            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+                player.hp = player.max_hp // 2
+                player.mana = player.max_mana // 2
+                player.position_in_location = 0
+                await state.update_data(player=player)
         
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        # Возвращаемся в подземелье
+        await self.show_dungeon(callback.message, state)
         await callback.answer()
     
     async def take_rest(self, callback: types.CallbackQuery, state: FSMContext):
@@ -510,25 +557,6 @@ class DungeonHandler:
         events[current_index]["completed"] = True
         await state.update_data(player=player, dungeon_events=events)
         
-        # Проверяем, был ли игрок уже в убежище
-        has_been_in_haven = 2 in player.visited_locations
-        
-        text = (
-            f"🔥 **ОТДЫХ**\n\n"
-            f"Ты восстанавливаешь силы.\n"
-            f"❤️ +{heal} HP\n"
-            f"Текущее здоровье: {player.hp}/{player.max_hp}\n\n"
-            f"➡️ Нажми 'Идти дальше' чтобы продолжить"
-        )
-        
-        keyboard_buttons = [
-            [InlineKeyboardButton(text="➡️ Идти дальше", callback_data="next_step")]
-        ]
-        
-        if has_been_in_haven:
-            keyboard_buttons.append([InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")])
-        
-        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-        
-        await callback.message.edit_text(text, reply_markup=keyboard)
+        # Возвращаемся в подземелье
+        await self.show_dungeon(callback.message, state)
         await callback.answer()
