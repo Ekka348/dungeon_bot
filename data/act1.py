@@ -15,12 +15,14 @@ class Act1:
             "area_level": 1,
             "area_level_range": (1, 3),
             "biome": "dungeon_entrance",
-            "next_location": 2,
-            "monster_density": 0.8,
-            "event_density": 0.2,
-            "min_events": 5,  # Уменьшено до 5
+            "next_location": 2,  # Следующая локация - убежище
+            "monster_density": 0.7,  # 70% монстры, 30% сундуки
+            "event_density": 0.3,
+            "min_events": 5,
             "max_events": 5,  # Фиксированное количество
-            "only_common_monsters": True  # Только обычные монстры
+            "only_common_monsters": True,  # Только обычные монстры
+            "only_common_chests": True,  # Только обычные сундуки
+            "only_common_loot": True  # Только обычный лут
         },
         2: {
             "id": 2,
@@ -662,7 +664,7 @@ class Act1:
             "title": "Выживший",
             "emoji": "👴",
             "dialogue": {
-                "first": "О, еще один бедолага... Добро пожаловать в наш скорбный приют. Мы все здесь отверженные. Я Морли, сижу здесь уже... сколько лет? Потерял счет.",
+                "first": "О, еще один бедолага... Добро пожаловать в наш скорбный приют. Мы все здесь отверженные. Я Морли, сижу здесь уже... сколько лет? Потерял счет. Держи это, пригодится в пути.",
                 "idle": "Колодец восстанавливает силы, если что. Вода там... странная, но помогает.",
                 "quest": "В тюрьме остались выжившие. Если найдешь их, приведи сюда. Мы должны держаться вместе."
             },
@@ -894,13 +896,13 @@ class Act1:
             return []
         
         events = []
-        num_events = random.randint(location.get("min_events", 10), location.get("max_events", 15))
+        num_events = location.get("min_events", 10)  # Используем фиксированное количество
         
         monster_density = location.get("monster_density", 0.7)
-        event_density = location.get("event_density", 0.3)
         
-        # Проверяем, только ли обычные монстры в локации
+        # Проверяем флаги для первой локации
         only_common = location.get("only_common_monsters", False)
+        only_common_chests = location.get("only_common_chests", False)
         
         for _ in range(num_events):
             if random.random() < monster_density:
@@ -929,9 +931,10 @@ class Act1:
                         "completed": False
                     })
             else:
-                # Генерируем событие - только сундуки, без ловушек и отдыха
-                event_type = random.choice(["chest"])  # Только сундуки
-                if event_type == "chest":
+                # Генерируем сундук
+                if only_common_chests:
+                    chest_rarity = "common"
+                else:
                     rarity_roll = random.random()
                     if rarity_roll < 0.7:
                         chest_rarity = "common"
@@ -939,14 +942,14 @@ class Act1:
                         chest_rarity = "magic"
                     else:
                         chest_rarity = "rare"
-                    
-                    events.append({
-                        "type": "chest",
-                        "rarity": chest_rarity,
-                        "location_id": location_id,
-                        "location_name": location["name"],
-                        "completed": False
-                    })
+                
+                events.append({
+                    "type": "chest",
+                    "rarity": chest_rarity,
+                    "location_id": location_id,
+                    "location_name": location["name"],
+                    "completed": False
+                })
         
         return events
     
@@ -1044,13 +1047,8 @@ class Act1:
         location1_events = cls.generate_location_events(1)
         dungeon.extend(location1_events)
         
-        # Добавляем переход в убежище
-        dungeon.append({
-            "type": "transition",
-            "to_location": 2,
-            "message": "Ты замечаешь тусклый свет вдалеке. Похоже, там кто-то есть...",
-            "completed": False
-        })
+        # После последнего события первой локации автоматический переход в убежище
+        # (без дополнительной кнопки перехода)
         
         # Локация 3: Кости катакомб
         location3_events = cls.generate_location_events(3)
