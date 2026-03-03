@@ -136,18 +136,22 @@ class DungeonHandler:
             f"💙 {player.mana}/{player.max_mana} MP"
         )
         
-        # Создаем клавиатуру для подземелья
-        keyboard = self._create_dungeon_keyboard(current_event)
+        # Создаем клавиатуру для подземелья с учетом локации
+        keyboard = self._create_dungeon_keyboard(current_event, player)
         
         try:
             await message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
         except:
             await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
     
-    def _create_dungeon_keyboard(self, event):
-        """Создает клавиатуру для подземелья"""
+    def _create_dungeon_keyboard(self, event, player):
+        """Создает клавиатуру для подземелья с учетом текущей локации"""
         buttons = []
         
+        # Определяем, был ли игрок уже в убежище
+        has_been_in_haven = 2 in player.visited_locations
+        
+        # Кнопка для текущего события
         if event["type"] == "battle" and not event.get("completed", False):
             buttons.append([InlineKeyboardButton(text="⚔️ Вступить в бой", callback_data="start_battle")])
         elif event["type"] == "boss" and not event.get("completed", False):
@@ -163,13 +167,20 @@ class DungeonHandler:
         
         # Навигационные кнопки
         nav_row = []
+        
+        # Кнопка "Далее" если событие пройдено
         if event.get("completed", False):
             nav_row.append(InlineKeyboardButton(text="➡️ Далее", callback_data="next_step"))
         
-        nav_row.append(InlineKeyboardButton(text="🏚️ Убежище", callback_data="return_to_haven"))
+        # Кнопка "Убежище" только если игрок уже был там
+        if has_been_in_haven:
+            nav_row.append(InlineKeyboardButton(text="🏚️ Убежище", callback_data="return_to_haven"))
+        
+        # Кнопка "Карта" доступна всегда
         nav_row.append(InlineKeyboardButton(text="🗺️ Карта", callback_data="show_map"))
         
-        buttons.append(nav_row)
+        if nav_row:
+            buttons.append(nav_row)
         
         return InlineKeyboardMarkup(inline_keyboard=buttons)
     
@@ -244,6 +255,9 @@ class DungeonHandler:
         player.exp += bonus_exp
         player.gold += bonus_gold
         
+        # Проверяем, был ли игрок уже в убежище
+        has_been_in_haven = 2 in player.visited_locations
+        
         text = (
             f"✅ **ЛОКАЦИЯ ПРОЙДЕНА!**\n\n"
             f"Ты успешно исследовал {location['name']}.\n\n"
@@ -260,7 +274,9 @@ class DungeonHandler:
             text += "🏁 Это была последняя локация акта!"
             buttons.append([InlineKeyboardButton(text="🏁 Завершить акт", callback_data="complete_act")])
         
-        buttons.append([InlineKeyboardButton(text="🏚️ Вернуться в убежище", callback_data="return_to_haven")])
+        # Кнопка убежища только если игрок уже был там
+        if has_been_in_haven:
+            buttons.append([InlineKeyboardButton(text="🏚️ Вернуться в убежище", callback_data="return_to_haven")])
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
         
@@ -357,7 +373,7 @@ class DungeonHandler:
         current_index = player.position_in_location
         
         if current_index >= len(events):
-            await callback.answer("Ошибка: событие не найдено")
+            await callback.answer("Ошибка: событие не найдена")
             return
         
         current_event = events[current_index]
@@ -385,16 +401,25 @@ class DungeonHandler:
         events[current_index]["completed"] = True
         await state.update_data(player=player, dungeon_events=events)
         
+        # Проверяем, был ли игрок уже в убежище
+        has_been_in_haven = 2 in player.visited_locations
+        
         text = (
             f"📦 **СУНДУК ОТКРЫТ!**\n\n"
             f"**Ты нашел:**\n" + "\n".join([f"  {item}" for item in loot_text]) +
             f"\n\n➡️ Нажми 'Идти дальше' чтобы продолжить"
         )
         
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="➡️ Идти дальше", callback_data="next_step")],
-            [InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")]
-        ])
+        # Формируем клавиатуру
+        keyboard_buttons = [
+            [InlineKeyboardButton(text="➡️ Идти дальше", callback_data="next_step")]
+        ]
+        
+        # Кнопка убежища только если игрок уже был там
+        if has_been_in_haven:
+            keyboard_buttons.append([InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")])
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
         
         await callback.message.edit_text(text, reply_markup=keyboard)
         await callback.answer()
@@ -424,6 +449,9 @@ class DungeonHandler:
         events[current_index]["completed"] = True
         await state.update_data(player=player, dungeon_events=events)
         
+        # Проверяем, был ли игрок уже в убежище
+        has_been_in_haven = 2 in player.visited_locations
+        
         text = (
             f"⚠️ **ЛОВУШКА СРАБОТАЛА!**\n\n"
             f"💥 Ты получил {actual_damage} урона!\n"
@@ -435,15 +463,25 @@ class DungeonHandler:
             player.die()
             await state.update_data(player=player)
             
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🏚️ Вернуться в убежище", callback_data="return_to_haven")]
-            ])
+            keyboard_buttons = []
+            # После смерти в первой локации нет кнопки убежища
+            if player.current_location == 1:
+                keyboard_buttons.append([InlineKeyboardButton(text="➡️ Продолжить", callback_data="next_step")])
+            else:
+                keyboard_buttons.append([InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")])
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
         else:
             text += "➡️ Нажми 'Идти дальше' чтобы продолжить"
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="➡️ Идти дальше", callback_data="next_step")],
-                [InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")]
-            ])
+            
+            keyboard_buttons = [
+                [InlineKeyboardButton(text="➡️ Идти дальше", callback_data="next_step")]
+            ]
+            
+            if has_been_in_haven:
+                keyboard_buttons.append([InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")])
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
         
         await callback.message.edit_text(text, reply_markup=keyboard)
         await callback.answer()
@@ -472,6 +510,9 @@ class DungeonHandler:
         events[current_index]["completed"] = True
         await state.update_data(player=player, dungeon_events=events)
         
+        # Проверяем, был ли игрок уже в убежище
+        has_been_in_haven = 2 in player.visited_locations
+        
         text = (
             f"🔥 **ОТДЫХ**\n\n"
             f"Ты восстанавливаешь силы.\n"
@@ -480,10 +521,14 @@ class DungeonHandler:
             f"➡️ Нажми 'Идти дальше' чтобы продолжить"
         )
         
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="➡️ Идти дальше", callback_data="next_step")],
-            [InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")]
-        ])
+        keyboard_buttons = [
+            [InlineKeyboardButton(text="➡️ Идти дальше", callback_data="next_step")]
+        ]
+        
+        if has_been_in_haven:
+            keyboard_buttons.append([InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")])
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
         
         await callback.message.edit_text(text, reply_markup=keyboard)
         await callback.answer()
