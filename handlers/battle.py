@@ -80,90 +80,73 @@ class BattleKeyboard:
         # Первая строка - здоровье и мана (неактивные кнопки)
         buttons.append([
             InlineKeyboardButton(text=hp_text, callback_data="ignore"),
-            InlineKeyboardButton(text="➖", callback_data="ignore"),  # Пустой разделитель
+            InlineKeyboardButton(text="➖", callback_data="ignore"),
             InlineKeyboardButton(text=mana_text, callback_data="ignore")
         ])
         
         # Находим фласки по типам
         health_flasks = [f for f in player.flasks if "💊" in f.emoji or "🧪" in f.emoji]
         mana_flasks = [f for f in player.flasks if "Ⓜ️" in f.emoji]
-        buff_flasks = [f for f in player.flasks if "✨" in f.emoji]
-        defense_flasks = [f for f in player.flasks if "🛡️" in f.emoji]
+        
+        # Создаем строку с фласками здоровья (3 слота)
+        health_slots = ["⬜", "⬜", "⬜"]  # По умолчанию все пустые
+        health_callbacks = ["ignore", "ignore", "ignore"]
+        
+        for i, flask in enumerate(health_flasks[:3]):  # Максимум 3 фласки здоровья
+            flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
+            health_slots[i] = f"🟢💊[{flask_bar}]"
+            health_callbacks[i] = f"battle_flask_health_{i}"
+        
+        health_row_text = f"{health_slots[0]} {health_slots[1]} {health_slots[2]}"
+        
+        # Создаем строку с фласками маны (3 слота)
+        mana_slots = ["⬜", "⬜", "⬜"]  # По умолчанию все пустые
+        mana_callbacks = ["ignore", "ignore", "ignore"]
+        
+        for i, flask in enumerate(mana_flasks[:3]):  # Максимум 3 фласки маны
+            flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
+            mana_slots[i] = f"🟢Ⓜ️[{flask_bar}]"
+            mana_callbacks[i] = f"battle_flask_mana_{i}"
+        
+        mana_row_text = f"{mana_slots[0]} {mana_slots[1]} {mana_slots[2]}"
+        
+        # Вторая строка - фласки здоровья и действия
+        buttons.append([
+            InlineKeyboardButton(text=health_row_text, callback_data="ignore"),  # Вся строка неактивна, активны отдельные слоты
+            InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
+            InlineKeyboardButton(text=mana_row_text, callback_data="ignore")
+        ])
+        
+        # Добавляем отдельные кнопки для каждого слота фласок здоровья
+        health_buttons = []
+        for i, callback in enumerate(health_callbacks):
+            if callback != "ignore":
+                health_buttons.append(InlineKeyboardButton(text=f"💊{i+1}", callback_data=callback))
+        
+        # Добавляем отдельные кнопки для каждого слота фласок маны
+        mana_buttons = []
+        for i, callback in enumerate(mana_callbacks):
+            if callback != "ignore":
+                mana_buttons.append(InlineKeyboardButton(text=f"Ⓜ️{i+1}", callback_data=callback))
+        
+        # Если есть активные фласки, добавляем строки с кнопками для них
+        if health_buttons:
+            buttons.append(health_buttons)
+        
+        # Третья строка - мощная атака и умение
+        action_row = [
+            InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
+            InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
+        ]
+        buttons.append(action_row)
+        
+        if mana_buttons:
+            buttons.append(mana_buttons)
         
         # Проверяем, находится ли игрок в убежище или уже получил базовые предметы
         has_portal = player.current_location == 2 or player.has_portal
         
-        # Строка с фласками здоровья и маны
-        health_text1 = "[пустой слот]"  # Пустая фласка по умолчанию
-        health_callback1 = "ignore"
-        if len(health_flasks) > 0:
-            flask = health_flasks[0]
-            flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            health_text1 = f"🟢💊🧪 [{flask_bar}]"
-            health_callback1 = f"battle_flask_health_0"
-        
-        mana_text1 = "[пустой слот]"  # Пустая фласка по умолчанию
-        mana_callback1 = "ignore"
-        if len(mana_flasks) > 0:
-            flask = mana_flasks[0]
-            flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            mana_text1 = f"🟢Ⓜ️🧪 [{flask_bar}]"
-            mana_callback1 = f"battle_flask_mana_0"
-        
-        buttons.append([
-            InlineKeyboardButton(text=health_text1, callback_data=health_callback1),
-            InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
-            InlineKeyboardButton(text=mana_text1, callback_data=mana_callback1)
-        ])
-        
-        # Вторая строка с фласками
-        health_text2 = "[пустой слот]"  # Пустая фласка по умолчанию
-        health_callback2 = "ignore"
-        if len(health_flasks) > 1:
-            flask = health_flasks[1]
-            flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            health_text2 = f"🟢💊🧪 [{flask_bar}]"
-            health_callback2 = f"battle_flask_health_1"
-        
-        mana_text2 = "[пустой слот]"  # Пустая фласка по умолчанию
-        mana_callback2 = "ignore"
-        if len(mana_flasks) > 1:
-            flask = mana_flasks[1]
-            flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            mana_text2 = f"🟢Ⓜ️🧪 [{flask_bar}]"
-            mana_callback2 = f"battle_flask_mana_1"
-        
-        buttons.append([
-            InlineKeyboardButton(text=health_text2, callback_data=health_callback2),
-            InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
-            InlineKeyboardButton(text=mana_text2, callback_data=mana_callback2)
-        ])
-        
-        # Третья строка - бафф, защита и умение
-        buff_text = "[пустой слот]"  # Пустая фласка по умолчанию
-        buff_callback = "ignore"
-        if len(buff_flasks) > 0:
-            flask = buff_flasks[0]
-            flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            buff_text = f"⚪️✨🧪 [{flask_bar}]"
-            buff_callback = f"battle_flask_buff_0"
-        
-        defense_text = "[пустой слот]"  # Пустая фласка по умолчанию
-        defense_callback = "ignore"
-        if len(defense_flasks) > 0:
-            flask = defense_flasks[0]
-            flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            defense_text = f"🔵🛡️🧪 [{flask_bar}]"
-            defense_callback = f"battle_flask_defense_0"
-        
-        buttons.append([
-            InlineKeyboardButton(text=buff_text, callback_data=buff_callback),
-            InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast"),
-            InlineKeyboardButton(text=defense_text, callback_data=defense_callback)
-        ])
-        
         # Четвертая строка - навигация
-        # Кнопка портала доступна только после получения свитка портала
         portal_button = InlineKeyboardButton(text="🌀 Побег", callback_data="battle_run" if has_portal else "ignore")
         
         buttons.append([
@@ -193,7 +176,7 @@ class BattleHandler:
         
         @self.dp.callback_query(lambda c: c.data == "ignore")
         async def ignore_callback(callback: types.CallbackQuery):
-            await callback.answer("❌ Недоступно")
+            await callback.answer("❌ Пустой слот")
         
         @self.dp.callback_query(lambda c: c.data == "battle_attack")
         async def battle_attack(callback: types.CallbackQuery, state: FSMContext):
@@ -229,22 +212,6 @@ class BattleHandler:
             try:
                 flask_index = int(callback.data.split('_')[3])
                 await self.use_flask(callback, state, flask_index, "mana")
-            except:
-                await callback.answer("❌ Ошибка")
-        
-        @self.dp.callback_query(lambda c: c.data.startswith("battle_flask_buff_"))
-        async def battle_flask_buff(callback: types.CallbackQuery, state: FSMContext):
-            try:
-                flask_index = int(callback.data.split('_')[3])
-                await self.use_flask(callback, state, flask_index, "buff")
-            except:
-                await callback.answer("❌ Ошибка")
-        
-        @self.dp.callback_query(lambda c: c.data.startswith("battle_flask_defense_"))
-        async def battle_flask_defense(callback: types.CallbackQuery, state: FSMContext):
-            try:
-                flask_index = int(callback.data.split('_')[3])
-                await self.use_flask(callback, state, flask_index, "defense")
             except:
                 await callback.answer("❌ Ошибка")
         
@@ -387,10 +354,6 @@ class BattleHandler:
             available_flasks = [f for f in player.flasks if "💊" in f.emoji]
         elif flask_type == "mana":
             available_flasks = [f for f in player.flasks if "Ⓜ️" in f.emoji]
-        elif flask_type == "buff":
-            available_flasks = [f for f in player.flasks if "✨" in f.emoji]
-        elif flask_type == "defense":
-            available_flasks = [f for f in player.flasks if "🛡️" in f.emoji]
         
         if flask_index >= len(available_flasks):
             await callback.answer("❌ Фласка не найдена")
@@ -414,14 +377,6 @@ class BattleHandler:
                 result_msg = f"💙 Использована фласка маны: +{mana_restore} MP"
             else:
                 result_msg = "❌ Фласка пуста!"
-        
-        elif flask_type == "defense":
-            result_msg = "🛡️ Использована фласка защиты"
-            flask.use()
-        
-        else:
-            result_msg = "✨ Использована фласка баффа"
-            flask.use()
         
         # Добавляем в лог
         battle_log.append({"turn": turn, "result": [result_msg]})
