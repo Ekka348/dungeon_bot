@@ -62,6 +62,23 @@ class DungeonHandler:
         @self.dp.callback_query(lambda c: c.data == "start_battle_from_dungeon")
         async def start_battle_from_dungeon(callback: types.CallbackQuery, state: FSMContext):
             await self.handlers.battle.start_battle(callback, state)
+        
+        # Блокируем кнопки атак, если бой не начат
+        @self.dp.callback_query(lambda c: c.data in ["battle_attack", "battle_heavy", "battle_fast"])
+        async def blocked_attack(callback: types.CallbackQuery, state: FSMContext):
+            data = await state.get_data()
+            player = data.get('player')
+            events = data.get('dungeon_events', [])
+            
+            if player and events:
+                current_index = player.position_in_location
+                if current_index < len(events):
+                    current_event = events[current_index]
+                    if current_event["type"] == "battle" and not current_event.get("completed", False):
+                        await callback.answer("❌ Сначала начни битву кнопкой ⚔️ Битва!")
+                        return
+            
+            await callback.answer("❌ Действие недоступно")
     
     async def next_step_command(self, message: types.Message, state: FSMContext):
         """Обрабатывает команду next_step из гиперссылки"""
@@ -180,21 +197,31 @@ class DungeonHandler:
                 InlineKeyboardButton(text=mana_text, callback_data="ignore")
             ])
         else:
-            # Если событие пройдено - показываем разделитель
+            # Если событие пройдено - показываем разделитель и кнопку "Далее"
             buttons.append([
                 InlineKeyboardButton(text=hp_text, callback_data="ignore"),
-                InlineKeyboardButton(text="➖", callback_data="ignore"),
+                InlineKeyboardButton(text="➡️ Далее", callback_data="next_step"),
                 InlineKeyboardButton(text=mana_text, callback_data="ignore")
             ])
         
         # Для первой локации нет фласок
         if player.current_location == 1:
-            # Только кнопки действий
-            buttons.append([
-                InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
-                InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
-                InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
-            ])
+            # Кнопки действий - они доступны ТОЛЬКО после начала боя
+            # Поэтому делаем их неактивными, пока бой не начат
+            if is_battle_event and not event.get("completed", False):
+                # Бой еще не начат - кнопки атак неактивны
+                buttons.append([
+                    InlineKeyboardButton(text="➖", callback_data="ignore"),
+                    InlineKeyboardButton(text="➖", callback_data="ignore"),
+                    InlineKeyboardButton(text="➖", callback_data="ignore")
+                ])
+            else:
+                # Бой идет или уже прошел - показываем активные кнопки атак
+                buttons.append([
+                    InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
+                    InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
+                    InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
+                ])
         else:
             # Для других локаций - показываем фласки
             # Находим фласки по типам
@@ -244,12 +271,21 @@ class DungeonHandler:
             if health_buttons:
                 buttons.append(health_buttons)
             
-            # Кнопки действий
-            buttons.append([
-                InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
-                InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
-                InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
-            ])
+            # Кнопки действий - доступны только во время боя
+            if is_battle_event and not event.get("completed", False):
+                # Бой еще не начат - кнопки атак неактивны
+                buttons.append([
+                    InlineKeyboardButton(text="➖", callback_data="ignore"),
+                    InlineKeyboardButton(text="➖", callback_data="ignore"),
+                    InlineKeyboardButton(text="➖", callback_data="ignore")
+                ])
+            else:
+                # Бой идет или уже прошел - показываем активные кнопки атак
+                buttons.append([
+                    InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
+                    InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
+                    InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
+                ])
             
             if mana_buttons:
                 buttons.append(mana_buttons)
