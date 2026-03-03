@@ -84,6 +84,27 @@ class BattleKeyboard:
             InlineKeyboardButton(text=mana_text, callback_data="ignore")
         ])
         
+        # Определяем, находится ли игрок в убежище (локация 2)
+        in_haven = player.current_location == 2
+        
+        # В первой локации (Вход в бездну) нет фласок вообще
+        if player.current_location == 1:
+            # Первая локация - только атака, никаких фласок
+            buttons.append([
+                InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
+                InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
+                InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
+            ])
+            
+            # Только персонаж и инвентарь, без портала и убежища
+            buttons.append([
+                InlineKeyboardButton(text="👤 Персонаж", callback_data="battle_stats"),
+                InlineKeyboardButton(text="🎒 Инвентарь", callback_data="battle_inventory")
+            ])
+            
+            return InlineKeyboardMarkup(inline_keyboard=buttons)
+        
+        # Для остальных локаций - показываем фласки
         # Находим фласки по типам
         health_flasks = [f for f in player.flasks if "💊" in f.emoji or "🧪" in f.emoji]
         mana_flasks = [f for f in player.flasks if "Ⓜ️" in f.emoji]
@@ -112,7 +133,7 @@ class BattleKeyboard:
         
         # Вторая строка - фласки здоровья и действия
         buttons.append([
-            InlineKeyboardButton(text=health_row_text, callback_data="ignore"),  # Вся строка неактивна, активны отдельные слоты
+            InlineKeyboardButton(text=health_row_text, callback_data="ignore"),
             InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
             InlineKeyboardButton(text=mana_row_text, callback_data="ignore")
         ])
@@ -129,7 +150,7 @@ class BattleKeyboard:
             if callback != "ignore":
                 mana_buttons.append(InlineKeyboardButton(text=f"Ⓜ️{i+1}", callback_data=callback))
         
-        # Если есть активные фласки, добавляем строки с кнопками для них
+        # Если есть активные фласки здоровья, добавляем строку с кнопками для них
         if health_buttons:
             buttons.append(health_buttons)
         
@@ -140,20 +161,22 @@ class BattleKeyboard:
         ]
         buttons.append(action_row)
         
+        # Если есть активные фласки маны, добавляем строку с кнопками для них
         if mana_buttons:
             buttons.append(mana_buttons)
         
-        # Проверяем, находится ли игрок в убежище или уже получил базовые предметы
-        has_portal = player.current_location == 2 or player.has_portal
-        
-        # Четвертая строка - навигация
-        portal_button = InlineKeyboardButton(text="🌀 Побег", callback_data="battle_run" if has_portal else "ignore")
-        
-        buttons.append([
+        # Навигационная строка
+        nav_buttons = [
             InlineKeyboardButton(text="👤 Персонаж", callback_data="battle_stats"),
-            InlineKeyboardButton(text="🎒 Инвентарь", callback_data="battle_inventory"),
-            portal_button
-        ])
+            InlineKeyboardButton(text="🎒 Инвентарь", callback_data="battle_inventory")
+        ]
+        
+        # Кнопка портала доступна только если игрок в убежище или уже получил свиток
+        has_portal = in_haven or player.has_portal
+        if has_portal:
+            nav_buttons.append(InlineKeyboardButton(text="🌀 Побег", callback_data="battle_run"))
+        
+        buttons.append(nav_buttons)
         
         return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -424,6 +447,11 @@ class BattleHandler:
         
         # Проверяем, доступен ли побег
         if action == CombatAction.RUN:
+            # В первой локации побег вообще недоступен
+            if player.current_location == 1:
+                await callback.answer("❌ Ты еще не нашел свиток портала!")
+                return
+            
             has_portal = player.current_location == 2 or player.has_portal
             if not has_portal:
                 await callback.answer("❌ У тебя нет свитка портала!")
@@ -569,10 +597,17 @@ class BattleHandler:
             for item in loot_text:
                 text += f"  {item}\n"
         
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="➡️ Идти дальше", callback_data="next_step")],
-            [InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")]
-        ])
+        # Определяем доступные кнопки после победы
+        keyboard_buttons = []
+        
+        # Кнопка "Идти дальше" есть всегда
+        keyboard_buttons.append([InlineKeyboardButton(text="➡️ Идти дальше", callback_data="next_step")])
+        
+        # Кнопка "В убежище" доступна только если игрок уже был в убежище
+        if player.current_location != 1 and (player.current_location == 2 or 2 in player.visited_locations):
+            keyboard_buttons.append([InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")])
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
         
         await state.update_data(player=player)
         
@@ -593,25 +628,44 @@ class BattleHandler:
             return
         
         player.add_death()
-        player.hp = player.max_hp // 2
-        player.mana = player.max_mana // 2
         
-        for flask in player.flasks:
-            flask.current_uses = max(1, flask.flask_data["uses"] // 2)
-        
-        player.current_location = 2
-        player.position_in_location = 0
-        
-        text = (
-            f"💀 **ПОРАЖЕНИЕ...**\n\n"
-            f"Ты очнулся в убежище, едва живой.\n"
-            f"❤️ Здоровье: {player.hp}/{player.max_hp}\n"
-            f"💙 Мана: {player.mana}/{player.max_mana}"
-        )
-        
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")]
-        ])
+        # В первой локации при смерти просто возрождаемся в начале локации
+        if player.current_location == 1:
+            player.hp = player.max_hp // 2
+            player.mana = player.max_mana // 2
+            player.position_in_location = 0
+            
+            text = (
+                f"💀 **ПОРАЖЕНИЕ...**\n\n"
+                f"Ты потерял сознание, но очнулся в начале подземелья.\n"
+                f"❤️ Здоровье: {player.hp}/{player.max_hp}\n"
+                f"💙 Мана: {player.mana}/{player.max_mana}"
+            )
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="➡️ Продолжить", callback_data="next_step")]
+            ])
+        else:
+            # В других локациях возрождаемся в убежище
+            player.hp = player.max_hp // 2
+            player.mana = player.max_mana // 2
+            
+            for flask in player.flasks:
+                flask.current_uses = max(1, flask.flask_data["uses"] // 2)
+            
+            player.current_location = 2
+            player.position_in_location = 0
+            
+            text = (
+                f"💀 **ПОРАЖЕНИЕ...**\n\n"
+                f"Ты очнулся в убежище, едва живой.\n"
+                f"❤️ Здоровье: {player.hp}/{player.max_hp}\n"
+                f"💙 Мана: {player.mana}/{player.max_mana}"
+            )
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")]
+            ])
         
         await state.update_data(
             player=player,
@@ -647,10 +701,15 @@ class BattleHandler:
             f"Ты успешно сбежал от врага!"
         )
         
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="➡️ Продолжить", callback_data="next_step")],
-            [InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")]
-        ])
+        # Определяем доступные кнопки после побега
+        keyboard_buttons = [
+            [InlineKeyboardButton(text="➡️ Продолжить", callback_data="next_step")]
+        ]
+        
+        if player.current_location != 1 and (player.current_location == 2 or 2 in player.visited_locations):
+            keyboard_buttons.append([InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")])
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
         
         await state.update_data(
             battle_enemy=None,
