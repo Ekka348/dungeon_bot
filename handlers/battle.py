@@ -84,86 +84,77 @@ class BattleKeyboard:
             InlineKeyboardButton(text=mana_text, callback_data="ignore")
         ])
         
-        # Определяем, находится ли игрок в убежище (локация 2)
-        in_haven = player.current_location == 2
+        # Находим фласки по типам
+        health_flasks = [f for f in player.flasks if "💊" in f.emoji or "🧪" in f.emoji]
+        mana_flasks = [f for f in player.flasks if "Ⓜ️" in f.emoji]
         
-        # В первой локации (Вход в бездну) нет фласок вообще
-        if player.current_location == 1:
-            # Первая локация - только атака, никаких фласок
+        # Проверяем, находится ли игрок в убежище или уже получил базовые предметы
+        has_portal = player.current_location == 2 or player.has_portal
+        
+        # Определяем, есть ли у игрока фласки
+        has_any_flask = len(health_flasks) > 0 or len(mana_flasks) > 0
+        
+        if has_any_flask:
+            # Создаем строку с фласками здоровья (3 слота)
+            health_slots = ["⬜", "⬜", "⬜"]
+            health_callbacks = ["ignore", "ignore", "ignore"]
+            
+            for i, flask in enumerate(health_flasks[:3]):
+                flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
+                health_slots[i] = f"🟢💊[{flask_bar}]"
+                health_callbacks[i] = f"battle_flask_health_{i}"
+            
+            health_row_text = f"{health_slots[0]} {health_slots[1]} {health_slots[2]}"
+            
+            # Создаем строку с фласками маны (3 слота)
+            mana_slots = ["⬜", "⬜", "⬜"]
+            mana_callbacks = ["ignore", "ignore", "ignore"]
+            
+            for i, flask in enumerate(mana_flasks[:3]):
+                flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
+                mana_slots[i] = f"🟢Ⓜ️[{flask_bar}]"
+                mana_callbacks[i] = f"battle_flask_mana_{i}"
+            
+            mana_row_text = f"{mana_slots[0]} {mana_slots[1]} {mana_slots[2]}"
+            
+            # Строка с фласками
+            buttons.append([
+                InlineKeyboardButton(text=health_row_text, callback_data="ignore"),
+                InlineKeyboardButton(text="🗺️ Карта", callback_data="show_map"),
+                InlineKeyboardButton(text=mana_row_text, callback_data="ignore")
+            ])
+            
+            # Кнопки для активных фласок здоровья
+            health_buttons = []
+            for i, callback in enumerate(health_callbacks):
+                if callback != "ignore":
+                    health_buttons.append(InlineKeyboardButton(text=f"💊{i+1}", callback_data=callback))
+            
+            if health_buttons:
+                buttons.append(health_buttons)
+            
+            # Кнопки действий
             buttons.append([
                 InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
                 InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
                 InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
             ])
             
-            # Только персонаж и инвентарь, без портала и убежища
-            buttons.append([
-                InlineKeyboardButton(text="👤 Персонаж", callback_data="battle_stats"),
-                InlineKeyboardButton(text="🎒 Инвентарь", callback_data="battle_inventory")
-            ])
+            # Кнопки для активных фласок маны
+            mana_buttons = []
+            for i, callback in enumerate(mana_callbacks):
+                if callback != "ignore":
+                    mana_buttons.append(InlineKeyboardButton(text=f"Ⓜ️{i+1}", callback_data=callback))
             
-            return InlineKeyboardMarkup(inline_keyboard=buttons)
-        
-        # Для остальных локаций - показываем фласки
-        # Находим фласки по типам
-        health_flasks = [f for f in player.flasks if "💊" in f.emoji or "🧪" in f.emoji]
-        mana_flasks = [f for f in player.flasks if "Ⓜ️" in f.emoji]
-        
-        # Создаем строку с фласками здоровья (3 слота)
-        health_slots = ["⬜", "⬜", "⬜"]  # По умолчанию все пустые
-        health_callbacks = ["ignore", "ignore", "ignore"]
-        
-        for i, flask in enumerate(health_flasks[:3]):  # Максимум 3 фласки здоровья
-            flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            health_slots[i] = f"🟢💊[{flask_bar}]"
-            health_callbacks[i] = f"battle_flask_health_{i}"
-        
-        health_row_text = f"{health_slots[0]} {health_slots[1]} {health_slots[2]}"
-        
-        # Создаем строку с фласками маны (3 слота)
-        mana_slots = ["⬜", "⬜", "⬜"]  # По умолчанию все пустые
-        mana_callbacks = ["ignore", "ignore", "ignore"]
-        
-        for i, flask in enumerate(mana_flasks[:3]):  # Максимум 3 фласки маны
-            flask_bar = BattleUI._create_bar(flask.current_uses, flask.flask_data["uses"], 3)
-            mana_slots[i] = f"🟢Ⓜ️[{flask_bar}]"
-            mana_callbacks[i] = f"battle_flask_mana_{i}"
-        
-        mana_row_text = f"{mana_slots[0]} {mana_slots[1]} {mana_slots[2]}"
-        
-        # Вторая строка - фласки здоровья и действия
-        buttons.append([
-            InlineKeyboardButton(text=health_row_text, callback_data="ignore"),
-            InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
-            InlineKeyboardButton(text=mana_row_text, callback_data="ignore")
-        ])
-        
-        # Добавляем отдельные кнопки для каждого слота фласок здоровья
-        health_buttons = []
-        for i, callback in enumerate(health_callbacks):
-            if callback != "ignore":
-                health_buttons.append(InlineKeyboardButton(text=f"💊{i+1}", callback_data=callback))
-        
-        # Добавляем отдельные кнопки для каждого слота фласок маны
-        mana_buttons = []
-        for i, callback in enumerate(mana_callbacks):
-            if callback != "ignore":
-                mana_buttons.append(InlineKeyboardButton(text=f"Ⓜ️{i+1}", callback_data=callback))
-        
-        # Если есть активные фласки здоровья, добавляем строку с кнопками для них
-        if health_buttons:
-            buttons.append(health_buttons)
-        
-        # Третья строка - мощная атака и умение
-        action_row = [
-            InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
-            InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
-        ]
-        buttons.append(action_row)
-        
-        # Если есть активные фласки маны, добавляем строку с кнопками для них
-        if mana_buttons:
-            buttons.append(mana_buttons)
+            if mana_buttons:
+                buttons.append(mana_buttons)
+        else:
+            # Нет фласок - только кнопки действий
+            buttons.append([
+                InlineKeyboardButton(text="⚔️ Атака", callback_data="battle_attack"),
+                InlineKeyboardButton(text="💪 Мощная атака", callback_data="battle_heavy"),
+                InlineKeyboardButton(text="⚡️ Умение", callback_data="battle_fast")
+            ])
         
         # Навигационная строка
         nav_buttons = [
@@ -172,7 +163,6 @@ class BattleKeyboard:
         ]
         
         # Кнопка портала доступна только если игрок в убежище или уже получил свиток
-        has_portal = in_haven or player.has_portal
         if has_portal:
             nav_buttons.append(InlineKeyboardButton(text="🌀 Побег", callback_data="battle_run"))
         
@@ -199,7 +189,7 @@ class BattleHandler:
         
         @self.dp.callback_query(lambda c: c.data == "ignore")
         async def ignore_callback(callback: types.CallbackQuery):
-            await callback.answer("❌ Пустой слот")
+            await callback.answer("❌ Недоступно")
         
         @self.dp.callback_query(lambda c: c.data == "battle_attack")
         async def battle_attack(callback: types.CallbackQuery, state: FSMContext):
@@ -447,11 +437,6 @@ class BattleHandler:
         
         # Проверяем, доступен ли побег
         if action == CombatAction.RUN:
-            # В первой локации побег вообще недоступен
-            if player.current_location == 1:
-                await callback.answer("❌ Ты еще не нашел свиток портала!")
-                return
-            
             has_portal = player.current_location == 2 or player.has_portal
             if not has_portal:
                 await callback.answer("❌ У тебя нет свитка портала!")
@@ -571,6 +556,7 @@ class BattleHandler:
         loot_text = []
         for loot_item in loot:
             if loot_item.type == "gold":
+                player.add_gold(loot_item.amount)
                 loot_text.append(f"💰 {loot_item.amount} золота")
             elif loot_item.item:
                 player.add_item(loot_item.item)
@@ -597,26 +583,17 @@ class BattleHandler:
             for item in loot_text:
                 text += f"  {item}\n"
         
-        # Определяем доступные кнопки после победы
-        keyboard_buttons = []
-        
-        # Кнопка "Идти дальше" есть всегда
-        keyboard_buttons.append([InlineKeyboardButton(text="➡️ Идти дальше", callback_data="next_step")])
-        
-        # Кнопка "В убежище" доступна только если игрок уже был в убежище
-        if player.current_location != 1 and (player.current_location == 2 or 2 in player.visited_locations):
-            keyboard_buttons.append([InlineKeyboardButton(text="🏚️ В убежище", callback_data="return_to_haven")])
-        
-        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-        
+        # Сохраняем обновленного игрока
         await state.update_data(player=player)
         
+        # Удаляем сообщение с боем
         try:
             await message.delete()
         except:
             pass
         
-        await message.answer(text, parse_mode="Markdown", reply_markup=keyboard)
+        # Показываем подземелье с обновленным событием
+        await self.handlers.dungeon.show_dungeon(message, state)
     
     async def handle_defeat(self, message: types.Message, state: FSMContext):
         """Обрабатывает поражение"""
